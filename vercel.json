@@ -1,6 +1,5 @@
 {
   "buildCommand": "node build.js",
   "outputDirectory": "dist",
-  "framework": null,
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "framework": null
 }
