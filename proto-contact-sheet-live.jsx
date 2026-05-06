@@ -55,7 +55,7 @@ const ContactSheetLive = ({ tweaks, viewKey, setViewKey, navigate, me, members, 
         <div>
           <div className="t-eyebrow">{isToday ? '오늘' : '지난 날'} · 컨택트 시트</div>
           <h1 className="t-display" style={{ margin: '4px 0 0', fontSize: 56, lineHeight: 1 }}>
-            {fmtDate(date)}
+            {fmtDate(date)} <span style={{ fontSize: 32, color: 'var(--ink-3)', fontWeight: 500 }}>({wkday(date)})</span>
           </h1>
         </div>
         <div style={{ flex: 1 }}/>

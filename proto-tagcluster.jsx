@@ -147,7 +147,7 @@ const TagCluster = ({ days, navigate, onSelectTag, activeTag }) => {
                         <Avatar member={m} size={16}/>
                         <span style={{ fontSize: 11, fontWeight: 600 }}>{m.name}</span>
                         <span className="t-mono" style={{ fontSize: 10, color:'var(--ink-3)', marginLeft:'auto' }}>
-                          {fmtDate(fromKey(s.dayKey))}
+                          {fmtDate(fromKey(s.dayKey))} ({wkday(fromKey(s.dayKey))})
                         </span>
                       </div>
                     </button>

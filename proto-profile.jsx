@@ -211,7 +211,7 @@ const ProfilePage = ({ memberId, navigate, openPlayer }) => {
                 </div>
                 <div style={{ fontSize: 13, lineHeight: 1.55, color:'var(--ink)' }}>"{f.text}"</div>
                 <div className="t-meta" style={{ display:'flex', justifyContent:'space-between' }}>
-                  <span>{fmtDate(date)} · {f.subTitle}</span>
+                  <span>{fmtDate(date)} ({wkday(date)}) · {f.subTitle}</span>
                 </div>
               </div>
             );
@@ -272,7 +272,7 @@ const HighlightCard = ({ sub, member, index, onClick }) => {
       <div style={{ padding:'12px 14px', display:'flex', flexDirection:'column', gap: 6 }}>
         <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.3 }}>{sub.title}</div>
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-          <span className="t-meta">{fmtDate(fromKey(sub.dayKey))}</span>
+          <span className="t-meta">{fmtDate(fromKey(sub.dayKey))} ({wkday(fromKey(sub.dayKey))})</span>
           <div style={{ display:'flex', gap: 4 }}>
             {sub.tags?.slice(0,2).map(t => <Tag key={t}>{t}</Tag>)}
           </div>
@@ -308,7 +308,7 @@ const CalendarTile = ({ sub, member, onClick }) => {
         fontSize: 9, fontFamily:'var(--font-mono)',
         display:'flex', justifyContent:'space-between',
       }}>
-        <span>{fmtDate(fromKey(sub.dayKey))}</span>
+        <span>{fmtDate(fromKey(sub.dayKey))} ({wkday(fromKey(sub.dayKey))})</span>
         {reactionTotal > 0 && <span>🔥{reactionTotal}</span>}
       </div>
     </button>

@@ -66,6 +66,7 @@
   <script type="text/babel" src="supabase-client.jsx"></script>
   <script type="text/babel" src="auth-screen.jsx"></script>
   <script type="text/babel" src="proto-contact-sheet-live.jsx"></script>
+  <script type="text/babel" src="proto-roll-live.jsx"></script>
   <script type="text/babel" src="proto-player-live.jsx"></script>
 
   <script type="text/babel" data-presets="react">
@@ -74,10 +75,12 @@
       const parts = h.split('/').filter(Boolean);
       if (parts.length === 0 || parts[0] === 'today') return { route: 'today', viewKey: todayKey() };
       if (parts[0] === 'd' && parts[1]) return { route: 'today', viewKey: parts[1] };
+      if (parts[0] === 'roll') return { route: 'roll', viewKey: todayKey() };
       return { route: 'today', viewKey: todayKey() };
     }
     function buildHash({ route, viewKey }) {
       if (route === 'today') return viewKey === todayKey() ? '#/today' : `#/d/${viewKey}`;
+      if (route === 'roll') return '#/roll';
       return '#/today';
     }
 
@@ -159,6 +162,10 @@
                 onClick={() => navigate('today')}>
                 <Icon name="home" size={12}/>오늘
               </button>
+              <button className={`navlink ${nav.route === 'roll' ? 'active' : ''}`}
+                onClick={() => navigate('roll')}>
+                <Icon name="archive" size={12}/>The Roll
+              </button>
               <span style={{ display:'flex', alignItems:'center', gap: 8, padding:'4px 10px',
                 background:'var(--bg-2)', borderRadius: 6, fontSize: 12 }}>
                 <Avatar member={me} size={20}/>{me.name}
@@ -178,6 +185,15 @@
                 setViewKey={setViewKey}
                 navigate={navigate}
                 openPlayer={openPlayer}
+              />
+            )}
+            {nav.route === 'roll' && (
+              <RollLive
+                tweaks={t}
+                members={members}
+                days={days}
+                openPlayer={openPlayer}
+                navigate={navigate}
               />
             )}
           </div>
