@@ -1,0 +1,227 @@
+/* First Penguin — design system
+   Minimal white, content-first. Borrowed sensibility from Figma + Are.na */
+
+:root {
+  /* Type */
+  --font-sans: "Inter Tight", "Pretendard", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-display: "Instrument Serif", "Iowan Old Style", Georgia, serif;
+  --font-mono: "JetBrains Mono", "SF Mono", ui-monospace, monospace;
+
+  /* Surface */
+  --bg: #fafaf7;
+  --bg-2: #f4f3ee;
+  --surface: #ffffff;
+  --line: #e8e6e0;
+  --line-2: #d8d5cd;
+
+  /* Ink */
+  --ink: #15140f;
+  --ink-2: #4a4842;
+  --ink-3: #8c8a82;
+  --ink-4: #b8b6ad;
+
+  /* Accents — soft, paper-like, no neon */
+  --accent: #ff5a1f;          /* signature orange */
+  --accent-soft: #fff2ec;
+  --pin: #1a1a1a;             /* comment pin core */
+  --good: #2f8f4f;
+  --warn: #c47a00;
+  --miss: #c2362e;
+
+  /* Member colors — used for avatars, pins, chart strokes */
+  --u-dy: #2966ff;            /* 동윤 — blue */
+  --u-dk: #ff5a1f;            /* 도경 — orange */
+  --u-se: #6b3fa0;            /* 성은 — violet */
+  --u-jw: #2f8f4f;            /* 지운 — green */
+
+  /* Geometry */
+  --r-1: 4px;
+  --r-2: 8px;
+  --r-3: 12px;
+  --r-4: 18px;
+  --r-pill: 999px;
+
+  --shadow-sm: 0 1px 2px rgba(20, 18, 12, 0.04), 0 0 0 1px rgba(20, 18, 12, 0.04);
+  --shadow-md: 0 4px 16px rgba(20, 18, 12, 0.06), 0 0 0 1px rgba(20, 18, 12, 0.05);
+  --shadow-lg: 0 24px 60px rgba(20, 18, 12, 0.12), 0 0 0 1px rgba(20, 18, 12, 0.06);
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-feature-settings: "ss01", "cv11";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+button { font-family: inherit; }
+
+/* ── Type scale ──────────────────────── */
+.t-display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 56px;
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+}
+.t-h1 { font-size: 28px; line-height: 1.15; letter-spacing: -0.02em; font-weight: 600; }
+.t-h2 { font-size: 18px; line-height: 1.25; letter-spacing: -0.01em; font-weight: 600; }
+.t-body { font-size: 14px; line-height: 1.5; }
+.t-meta { font-size: 12px; line-height: 1.35; color: var(--ink-3); }
+.t-mono { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.02em; }
+.t-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* ── Avatars ──────────────────────── */
+.avatar {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center; justify-content: center;
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
+.avatar.dy { background: var(--u-dy); }
+.avatar.dk { background: var(--u-dk); }
+.avatar.se { background: var(--u-se); }
+.avatar.jw { background: var(--u-jw); }
+.avatar.sm { width: 22px; height: 22px; font-size: 9px; }
+.avatar.lg { width: 36px; height: 36px; font-size: 13px; }
+
+/* ── Buttons / chips ──────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 32px; padding: 0 12px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  border-radius: var(--r-2);
+  font-size: 13px; font-weight: 500;
+  cursor: pointer;
+  transition: background .12s, border-color .12s;
+}
+.btn:hover { background: var(--bg-2); border-color: var(--line-2); }
+.btn.primary { background: var(--ink); color: white; border-color: var(--ink); }
+.btn.primary:hover { background: #000; }
+.btn.icon { width: 32px; padding: 0; justify-content: center; }
+.btn.sm { height: 26px; padding: 0 9px; font-size: 12px; border-radius: var(--r-1); }
+
+.chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  height: 22px; padding: 0 8px;
+  background: var(--bg-2);
+  border-radius: var(--r-pill);
+  font-size: 11px;
+  color: var(--ink-2);
+  font-family: var(--font-mono);
+  letter-spacing: 0.01em;
+}
+.chip.tag { background: transparent; border: 1px solid var(--line); }
+.chip.streak { background: #15140f; color: #fff7e6; }
+
+/* ── Panels ──────────────────────── */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-3);
+}
+.divider { height: 1px; background: var(--line); border: 0; }
+.divider-v { width: 1px; background: var(--line); align-self: stretch; }
+
+/* ── Comment pin (Figma-style) ──────────────────────── */
+.pin {
+  position: absolute;
+  width: 28px; height: 28px;
+  background: var(--pin);
+  color: white;
+  border-radius: 50% 50% 50% 4px;
+  transform: translate(-2px, -26px);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 600;
+  font-family: var(--font-mono);
+  box-shadow: 0 2px 6px rgba(0,0,0,.3), 0 0 0 2px white;
+  cursor: pointer;
+  z-index: 5;
+}
+.pin.dy { background: var(--u-dy); }
+.pin.dk { background: var(--u-dk); }
+.pin.se { background: var(--u-se); }
+.pin.jw { background: var(--u-jw); }
+
+.pin-popover {
+  position: absolute;
+  width: 240px;
+  background: white;
+  border-radius: var(--r-3);
+  box-shadow: var(--shadow-lg);
+  padding: 10px 12px 12px;
+  z-index: 6;
+  font-size: 13px;
+}
+
+/* ── Reaction bubble ──────────────────────── */
+.reaction {
+  display: inline-flex; align-items: center; gap: 4px;
+  height: 22px; padding: 0 8px 0 6px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  font-size: 11px;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: border-color .12s, background .12s;
+}
+.reaction:hover { border-color: var(--line-2); }
+.reaction.active { background: var(--accent-soft); border-color: var(--accent); color: var(--ink); }
+.reaction .emoji { font-size: 13px; }
+
+/* ── Video frame ──────────────────────── */
+.video-frame {
+  position: relative;
+  background: #0e0e0c;
+  overflow: hidden;
+  border-radius: var(--r-2);
+  aspect-ratio: 16 / 10;
+}
+.video-frame .placeholder {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  color: rgba(255,255,255,.4);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+}
+
+/* ── Empty slot ──────────────────────── */
+.empty-slot {
+  border: 1.5px dashed var(--line-2);
+  background: repeating-linear-gradient(
+    135deg,
+    transparent 0 8px,
+    rgba(0,0,0,0.015) 8px 9px
+  );
+  border-radius: var(--r-2);
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column; gap: 8px;
+  color: var(--ink-3);
+  aspect-ratio: 16 / 10;
+}
+
+/* ── Scrollbar reset ──────────────────────── */
+.scroll { scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
+.scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+.scroll::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 4px; }
+.scroll::-webkit-scrollbar-track { background: transparent; }
+.no-scroll::-webkit-scrollbar { display: none; }

@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8"/>
+  <title>퍼스트펭귄 — 매일 한 컷</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&family=Pretendard&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="styles.css"/>
+
+  <!-- Supabase config — replaced by build.js at deploy time -->
+  <script>
+    window.SUPABASE_URL = "https://ykefsjdljioihxnkayii.supabase.co";
+    window.SUPABASE_ANON_KEY = "sb_publishable_V7VDS1g7gh9BBXfq-PXr8Q_RSu-Ity5";
+  </script>
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <style>
+    body { background: var(--bg); }
+    .app-shell { max-width: 1280px; margin: 0 auto; }
+    .topnav {
+      position: sticky; top: 0; z-index: 50;
+      background: rgba(248, 246, 240, 0.92);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--line);
+      max-width: 1280px; margin: 0 auto;
+    }
+    .topnav-inner {
+      display: flex; align-items: center; gap: 18px;
+      padding: 10px 36px;
+    }
+    .topnav .brand {
+      font-family: var(--font-display);
+      font-size: 22px; font-style: italic;
+      letter-spacing: -0.01em;
+      cursor: pointer;
+    }
+    .topnav .navlink {
+      all: unset; cursor: pointer;
+      padding: 6px 12px; border-radius: 6px;
+      font-size: 13px; font-weight: 500; color: var(--ink-2);
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .topnav .navlink.active { background: var(--ink); color: #fff7e6; }
+    .topnav .navlink:hover:not(.active) { background: var(--bg-2); }
+    .loading-screen {
+      min-height: 100vh; display: grid; place-items: center;
+      font-family: var(--font-display); font-style: italic; font-size: 32px;
+      color: var(--ink-3);
+    }
+  </style>
+</head>
+<body>
+  <div id="root"><div class="loading-screen">first penguin · 로딩 중…</div></div>
+
+  <script type="text/babel" src="tweaks-panel.jsx"></script>
+  <script type="text/babel" src="shared.jsx"></script>
+  <script type="text/babel" src="proto-helpers.jsx"></script>
+  <script type="text/babel" src="proto-video.jsx"></script>
+  <script type="text/babel" src="proto-player.jsx"></script>
+  <script type="text/babel" src="supabase-client.jsx"></script>
+  <script type="text/babel" src="auth-screen.jsx"></script>
+  <script type="text/babel" src="proto-contact-sheet-live.jsx"></script>
+  <script type="text/babel" src="proto-player-live.jsx"></script>
+
+  <script type="text/babel" data-presets="react">
+    function parseHash() {
+      const h = (location.hash || '').replace(/^#\/?/, '');
+      const parts = h.split('/').filter(Boolean);
+      if (parts.length === 0 || parts[0] === 'today') return { route: 'today', viewKey: todayKey() };
+      if (parts[0] === 'd' && parts[1]) return { route: 'today', viewKey: parts[1] };
+      return { route: 'today', viewKey: todayKey() };
+    }
+    function buildHash({ route, viewKey }) {
+      if (route === 'today') return viewKey === todayKey() ? '#/today' : `#/d/${viewKey}`;
+      return '#/today';
+    }
+
+    const App = () => {
+      const [t, setTweak] = useTweaks({ filmGrain: true });
+      const auth = useAuth();
+      const [nav, setNav] = React.useState(parseHash());
+      const [player, setPlayer] = React.useState(null);
+
+      React.useEffect(() => {
+        const onHash = () => setNav(parseHash());
+        window.addEventListener('hashchange', onHash);
+        return () => window.removeEventListener('hashchange', onHash);
+      }, []);
+
+      // Configuration check
+      if (!window.__supabaseConfigured) {
+        return <AuthScreen configured={false}/>;
+      }
+
+      // Loading auth
+      if (auth.loading) {
+        return <div className="loading-screen">first penguin</div>;
+      }
+
+      // Not signed in
+      if (!auth.session) {
+        return <AuthScreen configured={true} onSignIn={signInWithGoogle}/>;
+      }
+
+      // Signed in but member row not yet ready
+      if (!auth.member) {
+        return <div className="loading-screen">계정 준비 중…</div>;
+      }
+
+      return <SignedInApp
+        me={auth.member} onSignOut={signOut}
+        nav={nav} setNav={setNav}
+        player={player} setPlayer={setPlayer}
+        t={t} setTweak={setTweak}/>;
+    };
+
+    const SignedInApp = ({ me, onSignOut, nav, setNav, player, setPlayer, t, setTweak }) => {
+      const { members, days, loaded } = useRealtimeStore();
+
+      const navigate = (route, arg) => {
+        const newNav = { route, viewKey: arg || nav.viewKey };
+        setNav(newNav);
+        const h = buildHash(newNav);
+        if (location.hash !== h) history.pushState(null, '', h);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      };
+      const setViewKey = (k) => {
+        const n = { ...nav, viewKey: k };
+        setNav(n);
+        const h = buildHash(n);
+        if (location.hash !== h) history.pushState(null, '', h);
+      };
+
+      const openPlayer = (sub, dayKey) => setPlayer({ subId: sub.id, dayKey });
+      const closePlayer = () => setPlayer(null);
+      const playerSub = player
+        ? days[player.dayKey]?.subs.find(s => s.id === player.subId)
+        : null;
+      const playerMember = playerSub ? members.find(m => m.id === playerSub.memberId) : null;
+
+      if (!loaded) return <div className="loading-screen">데이터 동기화 중…</div>;
+
+      return (
+        <>
+          <nav className="topnav">
+            <div className="topnav-inner">
+              <span className="brand" onClick={() => navigate('today')}>
+                <span style={{ fontStyle:'normal', fontWeight: 600, marginRight: 4 }}>퍼스트펭귄</span>
+                <span style={{ color:'var(--ink-3)' }}>· first penguin</span>
+              </span>
+              <div style={{ flex: 1 }}/>
+              <button className={`navlink ${nav.route === 'today' ? 'active' : ''}`}
+                onClick={() => navigate('today')}>
+                <Icon name="home" size={12}/>오늘
+              </button>
+              <span style={{ display:'flex', alignItems:'center', gap: 8, padding:'4px 10px',
+                background:'var(--bg-2)', borderRadius: 6, fontSize: 12 }}>
+                <Avatar member={me} size={20}/>{me.name}
+              </span>
+              <button className="navlink" onClick={onSignOut}>로그아웃</button>
+            </div>
+          </nav>
+
+          <div className="app-shell">
+            {nav.route === 'today' && (
+              <ContactSheetLive
+                tweaks={t}
+                me={me}
+                members={members}
+                days={days}
+                viewKey={nav.viewKey}
+                setViewKey={setViewKey}
+                navigate={navigate}
+                openPlayer={openPlayer}
+              />
+            )}
+          </div>
+
+          <PlayerLive
+            open={!!player}
+            sub={playerSub}
+            member={playerMember}
+            me={me}
+            onClose={closePlayer}
+          />
+
+          <TweaksPanel>
+            <TweakSection label="필름 룩"/>
+            <TweakToggle label="필름 그레인"
+              value={t.filmGrain}
+              onChange={v => setTweak('filmGrain', v)}/>
+            <TweakSection label="계정"/>
+            <TweakButton onClick={onSignOut}>로그아웃</TweakButton>
+          </TweaksPanel>
+        </>
+      );
+    };
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+  </script>
+</body>
+</html>

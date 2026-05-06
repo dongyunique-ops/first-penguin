@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8"/>
+  <title>퍼스트펭귄 — 영상 협업 보드</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&family=Pretendard&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="styles.css"/>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <style>
+    body { background: #f0eee9; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" src="design-canvas.jsx"></script>
+  <script type="text/babel" src="shared.jsx"></script>
+  <script type="text/babel" src="variants.jsx"></script>
+  <script type="text/babel" src="archive.jsx"></script>
+
+  <script type="text/babel" data-presets="react">
+    const App = () => (
+      <DesignCanvas>
+        <DCSection id="overview" title="퍼스트펭귄"
+          subtitle="동윤 · 도경 · 성은 · 지운 — 데일리 모션 챌린지 · 영상 협업 보드 + 아카이브 시안">
+
+          <DCArtboard id="v1" label="①  Studio Wall — 2×2 그리드, 정적·고요" width={1280} height={820}>
+            <Variant1/>
+          </DCArtboard>
+
+          <DCArtboard id="v2" label="②  Salon Hang — 오늘의 페더드 강조 (반응順)" width={1280} height={820}>
+            <Variant2/>
+          </DCArtboard>
+
+          <DCArtboard id="v3" label="③  Contact Sheet — 필름 스트립 메타포" width={1280} height={820}>
+            <Variant3/>
+          </DCArtboard>
+
+          <DCArtboard id="v4" label="④  Stage + Studios — 큰 플레이어 + 사이드 큐" width={1280} height={820}>
+            <Variant4/>
+          </DCArtboard>
+
+        </DCSection>
+
+        <DCSection id="archive" title="아카이브 — The Roll"
+          subtitle="지난 14일을 한 화면에. 멤버·태그 필터, 스트릭, 베스트 작업물.">
+          <DCArtboard id="archive-tl" label="타임라인 뷰 (14일 × 4명)" width={1280} height={820}>
+            <ArchiveTimeline/>
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="notes" title="구조 제안 한 페이지 요약"
+          subtitle="이 보드와 아카이브가 어떻게 연결되는지">
+          <DCArtboard id="ia" label="정보 구조" width={1280} height={580}>
+            <InfoArchitecture/>
+          </DCArtboard>
+        </DCSection>
+      </DesignCanvas>
+    );
+
+    // Simple IA diagram so the user can read the proposed structure quickly.
+    const InfoArchitecture = () => (
+      <div style={{
+        width: 1280, height: 580,
+        background:'var(--bg)',
+        padding:'40px 56px',
+        fontFamily:'var(--font-sans)',
+        display:'flex', flexDirection:'column', gap: 24,
+      }}>
+        <div>
+          <div className="t-eyebrow">제안하는 구조</div>
+          <h1 className="t-display" style={{ margin:'4px 0 0', fontSize: 42 }}>3 화면 · 1 데이터 모델</h1>
+        </div>
+
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap: 24, flex: 1 }}>
+          <IACard
+            num="01"
+            title="오늘의 보드"
+            tag="/today"
+            desc="홈 화면. 4명의 오늘 영상이 한 눈에. 영상 위 핀 댓글·이모지 리액션·재생 컨트롤 모두 인라인."
+            bullets={[
+              '4분할 그리드 (멤버 고정)',
+              'mp4 / gif 인라인 재생',
+              '타임라인 위 댓글 핀',
+              '이모지 리액션 · 미제출 표시',
+              '드래그·URL 둘 다 업로드',
+            ]}/>
+          <IACard
+            num="02"
+            title="아카이브"
+            tag="/archive"
+            desc="과거 모든 데일리. 타임라인을 좌우로 스크롤. 멤버·태그 필터, 통계, 주간 베스트."
+            bullets={[
+              '14일 → 무한 (확장성)',
+              '4명 × N일 그리드',
+              '멤버별 / 태그별 필터',
+              '완주율·스트릭 통계',
+              '주간/월간 베스트 큐레이션',
+            ]}/>
+          <IACard
+            num="03"
+            title="개인 페이지"
+            tag="/u/:id"
+            desc="멤버 한 명의 모든 작업과 받은 피드백. 자기 발자취를 길게 보고 싶을 때."
+            bullets={[
+              '본인 작업물 시간순',
+              '받은 댓글·반응 모아보기',
+              '연속 업로드 streak',
+              '월간 하이라이트 릴',
+              '(향후) 외부 공유용 포트폴리오',
+            ]}/>
+        </div>
+
+        <div style={{
+          paddingTop: 16, borderTop:'1px solid var(--line)',
+          display:'flex', gap: 32, alignItems:'center',
+        }}>
+          <div className="t-eyebrow">데이터 모델</div>
+          <div style={{ display:'flex', gap: 10, flexWrap:'wrap' }}>
+            {['Member', 'Day', 'Submission(mp4|gif|url)', 'Comment(pin · t · text)', 'Reaction(emoji)', 'Tag'].map(t =>
+              <span key={t} className="chip tag" style={{ height: 28, fontSize: 12, padding:'0 12px' }}>{t}</span>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+
+    const IACard = ({ num, title, tag, desc, bullets }) => (
+      <div className="panel" style={{ padding: 22, display:'flex', flexDirection:'column', gap: 12 }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline' }}>
+          <span className="t-mono" style={{ color:'var(--ink-3)', fontSize: 11 }}>{num}</span>
+          <span className="t-mono" style={{ color:'var(--accent)', fontSize: 11 }}>{tag}</span>
+        </div>
+        <h2 style={{
+          margin:0, fontFamily:'var(--font-display)',
+          fontSize: 30, letterSpacing:'-0.02em', fontWeight: 400,
+        }}>{title}</h2>
+        <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5, color:'var(--ink-2)' }}>{desc}</p>
+        <ul style={{ margin: 0, padding: 0, listStyle:'none', display:'flex', flexDirection:'column', gap: 6 }}>
+          {bullets.map(b => (
+            <li key={b} style={{ fontSize: 12, color:'var(--ink-2)', display:'flex', gap: 8, alignItems:'flex-start' }}>
+              <span style={{ color:'var(--accent)', marginTop: 1 }}>—</span>
+              {b}
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+  </script>
+</body>
+</html>

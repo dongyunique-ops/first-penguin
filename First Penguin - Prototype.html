@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8"/>
+  <title>퍼스트펭귄 — 매일 한 컷</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&family=Pretendard&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="styles.css"/>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <style>
+    body { background: var(--bg); }
+    .app-shell { max-width: 1280px; margin: 0 auto; }
+    .topnav {
+      position: sticky; top: 0; z-index: 50;
+      background: rgba(248, 246, 240, 0.92);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--line);
+      max-width: 1280px; margin: 0 auto;
+    }
+    .topnav-inner {
+      display: flex; align-items: center; gap: 18px;
+      padding: 10px 36px;
+    }
+    .topnav .brand {
+      font-family: var(--font-display);
+      font-size: 22px; font-style: italic;
+      letter-spacing: -0.01em;
+      cursor: pointer;
+    }
+    .topnav .navlink {
+      all: unset; cursor: pointer;
+      padding: 6px 12px; border-radius: 6px;
+      font-size: 13px; font-weight: 500; color: var(--ink-2);
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .topnav .navlink.active {
+      background: var(--ink); color: #fff7e6;
+    }
+    .topnav .navlink:hover:not(.active) { background: var(--bg-2); }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <template id="__bundler_thumbnail">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" style="background:#f8f6f0">
+      <rect x="60" y="60" width="280" height="280" fill="#15140f" rx="6"/>
+      <g fill="#fff7e6">
+        <rect x="80" y="100" width="50" height="36" rx="2" fill="#ff5a1f"/>
+        <rect x="140" y="100" width="50" height="36" rx="2" fill="#2966ff"/>
+        <rect x="200" y="100" width="50" height="36" rx="2" fill="#6b3fa0"/>
+        <rect x="260" y="100" width="50" height="36" rx="2" fill="#2f8f4f"/>
+      </g>
+      <text x="80" y="200" font-family="Instrument Serif, serif" font-style="italic" font-size="42" fill="#fff7e6">first penguin</text>
+      <text x="80" y="240" font-family="JetBrains Mono, monospace" font-size="14" fill="#fff7e6" opacity=".6">매일 한 컷</text>
+      <g stroke="#fff7e6" stroke-width="1" opacity=".3">
+        <line x1="80" y1="280" x2="320" y2="280"/>
+        <circle cx="120" cy="280" r="4" fill="#ff5a1f" stroke="none"/>
+        <circle cx="180" cy="280" r="4" fill="#2966ff" stroke="none"/>
+        <circle cx="240" cy="280" r="4" fill="#6b3fa0" stroke="none"/>
+        <circle cx="300" cy="280" r="4" fill="#2f8f4f" stroke="none"/>
+      </g>
+    </svg>
+  </template>
+
+  <script type="text/babel" src="tweaks-panel.jsx"></script>
+  <script type="text/babel" src="shared.jsx"></script>
+  <script type="text/babel" src="proto-data.jsx"></script>
+  <script type="text/babel" src="proto-video.jsx"></script>
+  <script type="text/babel" src="proto-contact-sheet.jsx"></script>
+  <script type="text/babel" src="proto-archive.jsx"></script>
+  <script type="text/babel" src="proto-player.jsx"></script>
+  <script type="text/babel" src="proto-profile.jsx"></script>
+  <script type="text/babel" src="proto-tagcluster.jsx"></script>
+
+  <script type="text/babel" data-presets="react">
+    const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+      "submissionState": "real",
+      "filmGrain": true,
+      "alwaysPlay": false
+    }/*EDITMODE-END*/;
+
+    // ── Hash router ────────────────────────────
+    // # / today           → contact sheet (today)
+    // # / d / 2026-04-22  → contact sheet for that day
+    // # / archive         → archive
+    // # / u / dy          → profile
+    // # / play / dy / 2026-04-22 → player overlay on top of context
+    function parseHash() {
+      const h = (location.hash || '').replace(/^#\/?/, '');
+      const parts = h.split('/').filter(Boolean);
+      if (parts.length === 0 || parts[0] === 'today') return { route: 'today', viewKey: todayKey() };
+      if (parts[0] === 'd' && parts[1]) return { route: 'today', viewKey: parts[1] };
+      if (parts[0] === 'archive') return { route: 'archive', viewKey: todayKey() };
+      if (parts[0] === 'u' && parts[1]) return { route: 'profile', memberId: parts[1], viewKey: todayKey() };
+      return { route: 'today', viewKey: todayKey() };
+    }
+    function buildHash({ route, viewKey, memberId }) {
+      if (route === 'today') return viewKey === todayKey() ? '#/today' : `#/d/${viewKey}`;
+      if (route === 'archive') return '#/archive';
+      if (route === 'profile') return `#/u/${memberId}`;
+      return '#/today';
+    }
+
+    const App = () => {
+      const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+      const [nav, setNav] = React.useState(parseHash());
+      const [player, setPlayer] = React.useState(null); // { sub, dayKey } | null
+      const [storeState, setStoreState] = React.useState(initialState);
+
+      React.useEffect(() => { saveState(storeState); }, [storeState]);
+
+      // Sync hash → state
+      React.useEffect(() => {
+        const onHash = () => setNav(parseHash());
+        window.addEventListener('hashchange', onHash);
+        return () => window.removeEventListener('hashchange', onHash);
+      }, []);
+
+      const navigate = (route, arg) => {
+        let newNav;
+        if (route === 'profile') newNav = { route, memberId: arg, viewKey: nav.viewKey };
+        else newNav = { route, viewKey: arg || nav.viewKey };
+        setNav(newNav);
+        const h = buildHash(newNav);
+        if (location.hash !== h) history.pushState(null, '', h);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      };
+
+      const setViewKey = (k) => {
+        setNav(n => ({ ...n, viewKey: k }));
+        const h = buildHash({ ...nav, viewKey: k });
+        if (location.hash !== h) history.pushState(null, '', h);
+      };
+
+      // Player handlers — operate on real store
+      const openPlayer = (sub, dayKey) => setPlayer({ subMemberId: sub.memberId, dayKey });
+      const closePlayer = () => setPlayer(null);
+
+      const playerSub = player ? storeState.days[player.dayKey]?.subs.find(s => s.memberId === player.subMemberId) : null;
+
+      const addPlayerPin = (pin) => {
+        if (!player) return;
+        setStoreState(s => {
+          const day = s.days[player.dayKey];
+          const subs = day.subs.map(sub => sub.memberId === player.subMemberId ? {
+            ...sub, pins: [...(sub.pins || []), pin]
+          } : sub);
+          return { ...s, days: { ...s.days, [player.dayKey]: { ...day, subs } } };
+        });
+      };
+
+      const togglePlayerReaction = (emoji) => {
+        if (!player) return;
+        setStoreState(s => {
+          const day = s.days[player.dayKey];
+          const me = s.currentUserId;
+          const subs = day.subs.map(sub => {
+            if (sub.memberId !== player.subMemberId) return sub;
+            const r = { ...(sub.reactions || {}) };
+            const byKey = `__${emoji}__by`;
+            const by = r[byKey] || [];
+            if (by.includes(me)) {
+              r[byKey] = by.filter(x => x !== me);
+              r[emoji] = Math.max(0, (r[emoji] || 1) - 1);
+              if (r[emoji] === 0) { delete r[emoji]; delete r[byKey]; }
+            } else {
+              r[byKey] = [...by, me];
+              r[emoji] = (r[emoji] || 0) + 1;
+            }
+            return { ...sub, reactions: r };
+          });
+          return { ...s, days: { ...s.days, [player.dayKey]: { ...day, subs } } };
+        });
+      };
+
+      const me = MEMBER_BY_ID[storeState.currentUserId];
+
+      return (
+        <>
+          <nav className="topnav">
+            <div className="topnav-inner">
+              <span className="brand" onClick={() => navigate('today')}>
+                <span style={{ fontStyle:'normal', fontWeight: 600, marginRight: 4 }}>퍼스트펭귄</span>
+                <span style={{ color:'var(--ink-3)' }}>· first penguin</span>
+              </span>
+              <div style={{ flex: 1 }}/>
+              <button className={`navlink ${nav.route === 'today' ? 'active' : ''}`}
+                onClick={() => navigate('today')}>
+                <Icon name="home" size={12}/>오늘
+              </button>
+              <button className={`navlink ${nav.route === 'archive' ? 'active' : ''}`}
+                onClick={() => navigate('archive')}>
+                <Icon name="archive" size={12}/>The Roll
+              </button>
+              <button className={`navlink ${nav.route === 'profile' && nav.memberId === me.id ? 'active' : ''}`}
+                onClick={() => navigate('profile', me.id)}>
+                <Avatar member={me} size={20}/>{me.name}
+              </button>
+              <div style={{ width: 1, height: 18, background:'var(--line)', margin:'0 4px' }}/>
+              <div style={{ display:'flex', gap: 4 }}>
+                {MEMBERS.filter(m => m.id !== me.id).map(m => (
+                  <button key={m.id}
+                    onClick={() => navigate('profile', m.id)}
+                    title={m.name}
+                    style={{
+                      all:'unset', cursor:'pointer',
+                      width: 26, height: 26, borderRadius: 6,
+                      display:'grid', placeItems:'center',
+                      background: nav.route === 'profile' && nav.memberId === m.id ? m.color : 'transparent',
+                      color: nav.route === 'profile' && nav.memberId === m.id ? 'white' : 'var(--ink-2)',
+                      fontSize: 11, fontWeight: 600,
+                      border: `1px solid ${nav.route === 'profile' && nav.memberId === m.id ? m.color : 'var(--line)'}`,
+                    }}>{m.initial}</button>
+                ))}
+              </div>
+              <button className="btn primary sm">
+                <Icon name="upload" size={11}/>업로드
+              </button>
+            </div>
+          </nav>
+
+          <div className="app-shell">
+            {nav.route === 'today' && (
+              <ContactSheetPage tweaks={t} viewKey={nav.viewKey} setViewKey={setViewKey} navigate={navigate}/>
+            )}
+            {nav.route === 'archive' && (
+              <ArchivePageWithCluster tweaks={t} viewKey={nav.viewKey} navigate={navigate} openPlayer={openPlayer}/>
+            )}
+            {nav.route === 'profile' && (
+              <ProfilePage memberId={nav.memberId} navigate={navigate} openPlayer={openPlayer}/>
+            )}
+          </div>
+
+          <PlayerOverlay
+            open={!!player}
+            sub={playerSub}
+            member={playerSub ? MEMBER_BY_ID[playerSub.memberId] : null}
+            currentUserId={storeState.currentUserId}
+            onClose={closePlayer}
+            onAddPin={addPlayerPin}
+            onToggleReaction={togglePlayerReaction}/>
+
+          <TweaksPanel>
+            <TweakSection label="제출 상태 (오늘)"/>
+            <TweakRadio label="시뮬레이션"
+              value={t.submissionState}
+              options={[
+                { value: 'real', label: '실제' },
+                { value: 'all', label: '4명' },
+                { value: '3', label: '3명' },
+                { value: '2', label: '2명' },
+                { value: 'none', label: '0명' },
+              ]}
+              onChange={v => setTweak('submissionState', v)}/>
+
+            <TweakSection label="필름 룩"/>
+            <TweakToggle label="필름 그레인"
+              value={t.filmGrain}
+              onChange={v => setTweak('filmGrain', v)}/>
+            <TweakToggle label="자동 재생"
+              value={t.alwaysPlay}
+              onChange={v => setTweak('alwaysPlay', v)}/>
+
+            <TweakSection label="데이터"/>
+            <TweakButton onClick={() => { clearState(); location.reload(); }}>
+              시드 데이터 리셋
+            </TweakButton>
+          </TweaksPanel>
+        </>
+      );
+    };
+
+    // Wrap Archive to inject TagCluster + openPlayer hook
+    const ArchivePageWithCluster = ({ tweaks, viewKey, navigate, openPlayer }) => {
+      const [state] = React.useState(initialState);
+      const [activeTag, setActiveTag] = React.useState(null);
+      const days = React.useMemo(() => Object.values(state.days)
+        .sort((a, b) => b.dateKey.localeCompare(a.dateKey)).slice(0, 30), [state]);
+
+      // Patch navigate so it intercepts 'play' kind action
+      const enhancedNavigate = (route, arg, sub) => {
+        if (route === 'play' && sub) { openPlayer(sub, arg); return; }
+        navigate(route, arg);
+      };
+
+      return (
+        <div>
+          <ArchivePage tweaks={tweaks} viewKey={viewKey} navigate={enhancedNavigate}/>
+          <div className="app-shell" style={{ padding:'0 36px 36px' }}>
+            <TagCluster days={days} navigate={navigate}
+              activeTag={activeTag} onSelectTag={setActiveTag}/>
+          </div>
+        </div>
+      );
+    };
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+  </script>
+</body>
+</html>
