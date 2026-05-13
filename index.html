@@ -7,6 +7,17 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&family=Pretendard&display=swap" rel="stylesheet"/>
+  <!-- 배민워크체 (Woowahan 사내 폰트). 설치된 기기는 그걸 사용, 아니면 BMHANNAPro로 fallback. -->
+  <style>
+    @font-face {
+      font-family: 'BMHANNAPro';
+      src: url('https://cdn.jsdelivr.net/gh/webfontworld/woowahan/BMHANNAPro.woff2') format('woff2'),
+           url('https://cdn.jsdelivr.net/gh/webfontworld/woowahan/BMHANNAPro.woff') format('woff');
+      font-weight: normal;
+      font-style: normal;
+      font-display: swap;
+    }
+  </style>
   <link rel="stylesheet" href="styles.css"/>
 
   <!-- Supabase config — replaced by build.js at deploy time -->
@@ -35,8 +46,8 @@
       padding: 10px 36px;
     }
     .topnav .brand {
-      font-family: var(--font-display);
-      font-size: 22px; font-style: italic;
+      font-family: '배민워크체', 'BM WORK', 'BMWORK', 'BMHANNAPro', 'Baemin Work', sans-serif;
+      font-size: 22px;
       letter-spacing: -0.01em;
       cursor: pointer;
     }
@@ -65,6 +76,7 @@
   <script type="text/babel" src="proto-player.jsx"></script>
   <script type="text/babel" src="supabase-client.jsx"></script>
   <script type="text/babel" src="auth-screen.jsx"></script>
+  <script type="text/babel" src="proto-comments.jsx"></script>
   <script type="text/babel" src="proto-contact-sheet-live.jsx"></script>
   <script type="text/babel" src="proto-roll-live.jsx"></script>
   <script type="text/babel" src="proto-player-live.jsx"></script>
@@ -101,29 +113,26 @@
         return <AuthScreen configured={false}/>;
       }
 
-      // Loading auth
+      // Loading auth — show spinner briefly
       if (auth.loading) {
         return <div className="loading-screen">first penguin</div>;
       }
 
-      // Not signed in
-      if (!auth.session) {
-        return <AuthScreen configured={true} onSignIn={signInWithGoogle}/>;
-      }
-
-      // Signed in but member row not yet ready
-      if (!auth.member) {
+      // Signed-in user but member row not yet ready
+      if (auth.session && !auth.member) {
         return <div className="loading-screen">계정 준비 중…</div>;
       }
 
+      // Render app for everyone — signed-in users have me, viewers have null
       return <SignedInApp
-        me={auth.member} onSignOut={signOut}
+        me={auth.member} signedIn={!!auth.session}
+        onSignIn={signInWithGoogle} onSignOut={signOut}
         nav={nav} setNav={setNav}
         player={player} setPlayer={setPlayer}
         t={t} setTweak={setTweak}/>;
     };
 
-    const SignedInApp = ({ me, onSignOut, nav, setNav, player, setPlayer, t, setTweak }) => {
+    const SignedInApp = ({ me, signedIn, onSignIn, onSignOut, nav, setNav, player, setPlayer, t, setTweak }) => {
       const { members, days, loaded } = useRealtimeStore();
 
       const navigate = (route, arg) => {
@@ -164,13 +173,22 @@
               </button>
               <button className={`navlink ${nav.route === 'roll' ? 'active' : ''}`}
                 onClick={() => navigate('roll')}>
-                <Icon name="archive" size={12}/>The Roll
+                <Icon name="archive" size={12}/>전체보기
               </button>
               <span style={{ display:'flex', alignItems:'center', gap: 8, padding:'4px 10px',
                 background:'var(--bg-2)', borderRadius: 6, fontSize: 12 }}>
-                <Avatar member={me} size={20}/>{me.name}
+                {signedIn
+                  ? <><Avatar member={me} size={20}/>{me.name}</>
+                  : <span style={{ color:'var(--ink-3)' }}>👀 보기 전용</span>
+                }
               </span>
-              <button className="navlink" onClick={onSignOut}>로그아웃</button>
+              {signedIn
+                ? <button className="navlink" onClick={onSignOut}>로그아웃</button>
+                : <button className="navlink" onClick={onSignIn}
+                    style={{ background:'var(--ink)', color:'#fff7e6' }}>
+                    Google 로그인
+                  </button>
+              }
             </div>
           </nav>
 
@@ -202,6 +220,7 @@
             open={!!player}
             sub={playerSub}
             member={playerMember}
+            members={members}
             me={me}
             onClose={closePlayer}
           />

@@ -29,8 +29,8 @@ const RollLive = ({ tweaks, members, days, openPlayer, navigate }) => {
     }}>
       <header>
         <div className="t-eyebrow">전체 아카이브</div>
-        <h1 className="t-display" style={{ margin: '4px 0 0', fontSize: 56, lineHeight: 1 }}>
-          The Roll
+        <h1 className="t-display" style={{ margin: '4px 0 0', fontSize: 56, lineHeight: 1, fontFamily: "'배민워크체', 'BM WORK', 'BMHANNAPro', sans-serif" }}>
+          전체보기
         </h1>
         <div className="t-meta" style={{ marginTop: 8 }}>
           {allSubs.length}개 작업 · {Object.keys(byDay).length}일치
@@ -55,8 +55,9 @@ const RollLive = ({ tweaks, members, days, openPlayer, navigate }) => {
               borderBottom: '1px solid var(--line)',
             }}>
               <h2 style={{
-                margin: 0, fontFamily: 'var(--font-display)',
-                fontWeight: 400, fontSize: 26,
+                margin: 0,
+                fontFamily: "'배민워크체', 'BM WORK', 'BMHANNAPro', sans-serif",
+                fontWeight: 500, fontSize: 26,
               }}>
                 {fmtKor(date)}
               </h2>

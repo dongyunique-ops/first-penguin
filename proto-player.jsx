@@ -3,7 +3,7 @@
 // pin markers placed at each comment's timestamp; hover/click marker to
 // jump there and read the comment. Add new pins by clicking the video.
 
-const PlayerOverlay = ({ open, sub, member, onClose, currentUserId, onAddPin, onToggleReaction, onJumpDay }) => {
+const PlayerOverlay = ({ open, sub, member, members, onClose, currentUserId, viewerMode, onAddPin, onToggleReaction, onJumpDay }) => {
   const [playing, setPlaying] = React.useState(true);
   const [currentTime, setCurrentTime] = React.useState(0);
   const [duration, setDuration] = React.useState(parseDuration(sub?.duration));
@@ -14,6 +14,7 @@ const PlayerOverlay = ({ open, sub, member, onClose, currentUserId, onAddPin, on
   const [draftPin, setDraftPin] = React.useState(null);
   const [draftText, setDraftText] = React.useState('');
   const [openPin, setOpenPin] = React.useState(null);
+  const [tab, setTab] = React.useState('comments'); // 'comments' | 'pins'
   const videoElRef = React.useRef(null);
 
   React.useEffect(() => {
@@ -283,50 +284,72 @@ const PlayerOverlay = ({ open, sub, member, onClose, currentUserId, onAddPin, on
           <ReactionRowDark reactions={sub.reactions} currentUserId={currentUserId} onToggle={onToggleReaction}/>
         </div>
 
+        {/* Tabs */}
         <div style={{
-          flex: 1, overflowY:'auto', padding:'14px 20px',
-          display:'flex', flexDirection:'column', gap: 12, minHeight: 0,
-        }} className="scroll">
-          <div className="t-eyebrow" style={{ color:'rgba(255,247,230,.5)' }}>
-            댓글 · {sub.pins?.length || 0}
-          </div>
-          {(!sub.pins || sub.pins.length === 0) && (
-            <div style={{ fontSize: 12, color:'rgba(255,247,230,.4)', lineHeight: 1.5 }}>
-              아직 댓글이 없습니다.<br/>
-              <span style={{ color:'var(--accent)' }}>[핀 추가]</span>를 눌러 영상의 특정 시점에 피드백을 남겨보세요.
-            </div>
-          )}
-          {(sub.pins || []).slice().sort((a,b) => (a.tSec ?? parseTime(a.t)) - (b.tSec ?? parseTime(b.t))).map(p => {
-            const author = MEMBER_BY_ID[p.comments[0].author];
-            const ts = p.tSec ?? parseTime(p.t);
-            return (
-              <button key={p.id}
-                onClick={() => { seekTo(ts); setOpenPin(p.id); }}
-                style={{
-                  all:'unset', cursor:'pointer',
-                  padding: 10, borderRadius: 8,
-                  background: openPin === p.id ? 'rgba(255,90,31,.12)' : 'rgba(255,255,255,.04)',
-                  border: `1px solid ${openPin === p.id ? 'var(--accent)' : 'rgba(255,255,255,.06)'}`,
-                  display:'flex', flexDirection:'column', gap: 6,
-                }}>
-                <div style={{ display:'flex', alignItems:'center', gap: 8 }}>
-                  <Avatar member={author} size={20}/>
-                  <span style={{ fontWeight: 600, fontSize: 12 }}>{author.name}</span>
-                  <span className="t-mono" style={{
-                    fontSize: 10, padding:'1px 6px', borderRadius: 3,
-                    background:'rgba(255,255,255,.08)', color:'rgba(255,247,230,.7)',
-                  }}>@{p.t}</span>
-                  <span className="t-meta" style={{ fontSize: 10, color:'rgba(255,247,230,.4)', marginLeft:'auto' }}>
-                    {p.comments[0].time}
-                  </span>
-                </div>
-                <div style={{ fontSize: 12.5, lineHeight: 1.5, color:'rgba(255,247,230,.85)' }}>
-                  {p.comments[0].text}
-                </div>
-              </button>
-            );
-          })}
+          display:'flex', gap: 4, padding:'10px 16px 0',
+          borderBottom:'1px solid rgba(255,255,255,.06)',
+        }}>
+          <TabBtn active={tab === 'comments'} onClick={() => setTab('comments')}
+            label="댓글" count={(sub.comments?.length || 0)}/>
+          <TabBtn active={tab === 'pins'} onClick={() => setTab('pins')}
+            label="핀" count={(sub.pins?.length || 0)}/>
         </div>
+
+        {tab === 'comments' && (
+          <CommentsPanel
+            submissionId={sub.id}
+            comments={sub.comments || []}
+            members={members || []}
+            me={currentUserId ? { id: currentUserId } : null}
+            viewerMode={viewerMode}
+            currentTime={currentTime}
+            seekTo={seekTo}
+          />
+        )}
+
+        {tab === 'pins' && (
+          <div style={{
+            flex: 1, overflowY:'auto', padding:'14px 20px',
+            display:'flex', flexDirection:'column', gap: 12, minHeight: 0,
+          }} className="scroll">
+            {(!sub.pins || sub.pins.length === 0) && (
+              <div style={{ fontSize: 12, color:'rgba(255,247,230,.4)', lineHeight: 1.5 }}>
+                아직 핀이 없습니다.<br/>
+                영상의 특정 지점에 <span style={{ color:'var(--accent)' }}>[핀 추가]</span>를 눌러 피드백을 남겨보세요.
+              </div>
+            )}
+            {(sub.pins || []).slice().sort((a,b) => (a.tSec ?? parseTime(a.t)) - (b.tSec ?? parseTime(b.t))).map(p => {
+              const author = (members || []).find(m => m.id === p.comments[0].author) || MEMBER_BY_ID[p.comments[0].author];
+              const ts = p.tSec ?? parseTime(p.t);
+              return (
+                <button key={p.id}
+                  onClick={() => { seekTo(ts); setOpenPin(p.id); }}
+                  style={{
+                    all:'unset', cursor:'pointer',
+                    padding: 10, borderRadius: 8,
+                    background: openPin === p.id ? 'rgba(255,90,31,.12)' : 'rgba(255,255,255,.04)',
+                    border: `1px solid ${openPin === p.id ? 'var(--accent)' : 'rgba(255,255,255,.06)'}`,
+                    display:'flex', flexDirection:'column', gap: 6,
+                  }}>
+                  <div style={{ display:'flex', alignItems:'center', gap: 8 }}>
+                    <Avatar member={author} size={20}/>
+                    <span style={{ fontWeight: 600, fontSize: 12 }}>{author?.name}</span>
+                    <span className="t-mono" style={{
+                      fontSize: 10, padding:'1px 6px', borderRadius: 3,
+                      background:'rgba(255,255,255,.08)', color:'rgba(255,247,230,.7)',
+                    }}>@{p.t}</span>
+                    <span className="t-meta" style={{ fontSize: 10, color:'rgba(255,247,230,.4)', marginLeft:'auto' }}>
+                      {p.comments[0].time}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 12.5, lineHeight: 1.5, color:'rgba(255,247,230,.85)' }}>
+                    {p.comments[0].text}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </aside>
     </div>
   );
@@ -377,6 +400,25 @@ const PlayerVideo = React.forwardRef(({ submission, isPlaying, muted, loop, spee
     </div>
   );
 });
+
+const TabBtn = ({ active, onClick, label, count }) => (
+  <button onClick={onClick}
+    style={{
+      all:'unset', cursor:'pointer',
+      padding:'8px 14px',
+      fontSize: 12, fontWeight: 600,
+      color: active ? 'var(--accent)' : 'rgba(255,247,230,.55)',
+      borderBottom: active ? '2px solid var(--accent)' : '2px solid transparent',
+      marginBottom: -1,
+      display:'inline-flex', alignItems:'center', gap: 5,
+    }}>
+    {label}
+    <span style={{
+      fontFamily:'var(--font-mono)', fontSize: 10,
+      color: active ? 'var(--accent)' : 'rgba(255,247,230,.4)',
+    }}>{count}</span>
+  </button>
+);
 
 const ctrlLg = {
   all:'unset', cursor:'pointer', width: 38, height: 38, borderRadius:'50%',

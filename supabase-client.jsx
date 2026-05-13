@@ -82,11 +82,12 @@ function useRealtimeStore() {
   // Load everything once
   const refresh = React.useCallback(async () => {
     if (!supabase) return;
-    const [mRes, sRes, pRes, rRes] = await Promise.all([
+    const [mRes, sRes, pRes, rRes, cRes] = await Promise.all([
       supabase.from('members').select('*'),
       supabase.from('submissions').select('*').order('day_key', { ascending: false }),
       supabase.from('pins').select('*').order('created_at', { ascending: true }),
       supabase.from('reactions').select('*'),
+      supabase.from('comments').select('*').order('created_at', { ascending: true }),
     ]);
     const memberList = mRes.data || [];
     setMembers(memberList);
@@ -96,6 +97,7 @@ function useRealtimeStore() {
     (sRes.data || []).forEach(sub => {
       const k = sub.day_key;
       if (!byDay[k]) byDay[k] = { dateKey: k, dayNum: 0, subs: [] };
+      sub.comments = [];
       byDay[k].subs.push({
         id: sub.id,
         memberId: sub.member_id,
@@ -108,6 +110,7 @@ function useRealtimeStore() {
         videoPath: sub.video_path,
         time: '',
         pins: [],
+        comments: [],
         reactions: { __mine: {} },
         missing: false,
       });
@@ -156,6 +159,22 @@ function useRealtimeStore() {
       if (r.member_id === myId) s.reactions.__mine[r.emoji] = true;
     });
 
+    // Comments
+    (cRes.data || []).forEach(c => {
+      const s = subById[c.submission_id];
+      if (!s) return;
+      s.comments.push({
+        id: c.id,
+        authorId: c.author_id,
+        text: c.text,
+        tSec: c.t_sec,
+        mentions: c.mentions || [],
+        createdAt: c.created_at,
+        updatedAt: c.updated_at,
+        time: relTime(c.created_at),
+      });
+    });
+
     setDays(byDay);
     setLoaded(true);
   }, []);
@@ -169,6 +188,7 @@ function useRealtimeStore() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'pins' }, refresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'reactions' }, refresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'members' }, refresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'comments' }, refresh)
       .subscribe();
     return () => supabase.removeChannel(ch);
   }, [refresh]);
@@ -228,6 +248,84 @@ async function addPin({ submissionId, authorId, x, y, t, text }) {
   return data;
 }
 
+async function replaceSubmissionVideo({ submissionId, oldPath, file, memberId }) {
+  if (!supabase) throw new Error('Not configured');
+  const ext = (file.name.split('.').pop() || 'mp4').toLowerCase();
+  // Path keyed by uploader (memberId) so storage RLS works
+  const path = `${memberId}/${submissionId}-${Date.now()}.${ext}`;
+  const { error: upErr } = await supabase.storage
+    .from('submissions').upload(path, file, { contentType: file.type, upsert: true });
+  if (upErr) throw upErr;
+  const { data: urlData } = supabase.storage.from('submissions').getPublicUrl(path);
+
+  const duration = await new Promise(res => {
+    const v = document.createElement('video');
+    v.preload = 'metadata';
+    v.onloadedmetadata = () => {
+      const s = Math.round(v.duration);
+      res(`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`);
+    };
+    v.onerror = () => res('—');
+    v.src = URL.createObjectURL(file);
+  });
+
+  const { data, error } = await supabase.from('submissions')
+    .update({
+      format: ext, duration,
+      video_url: urlData.publicUrl,
+      video_mime: file.type,
+      video_path: path,
+      submitted_at: new Date().toISOString(),
+    })
+    .eq('id', submissionId)
+    .select().single();
+  if (error) throw error;
+
+  // Best-effort cleanup of old file
+  if (oldPath && oldPath !== path) {
+    supabase.storage.from('submissions').remove([oldPath]).catch(()=>{});
+  }
+  return data;
+}
+
+async function deleteSubmission({ submissionId, videoPath }) {
+  if (!supabase) throw new Error('Not configured');
+  const { error } = await supabase.from('submissions').delete().eq('id', submissionId);
+  if (error) throw error;
+  if (videoPath) {
+    supabase.storage.from('submissions').remove([videoPath]).catch(()=>{});
+  }
+}
+
+async function addComment({ submissionId, authorId, text, tSec, mentions }) {
+  if (!supabase) throw new Error('Not configured');
+  const { data, error } = await supabase.from('comments').insert({
+    submission_id: submissionId,
+    author_id: authorId,
+    text,
+    t_sec: tSec ?? null,
+    mentions: mentions || [],
+  }).select().single();
+  if (error) throw error;
+  return data;
+}
+
+async function updateComment({ commentId, text, mentions }) {
+  if (!supabase) throw new Error('Not configured');
+  const { data, error } = await supabase.from('comments')
+    .update({ text, mentions: mentions || [], updated_at: new Date().toISOString() })
+    .eq('id', commentId)
+    .select().single();
+  if (error) throw error;
+  return data;
+}
+
+async function deleteComment({ commentId }) {
+  if (!supabase) throw new Error('Not configured');
+  const { error } = await supabase.from('comments').delete().eq('id', commentId);
+  if (error) throw error;
+}
+
 async function toggleReaction({ submissionId, memberId, emoji, on }) {
   if (!supabase) throw new Error('Not configured');
   if (on) {
@@ -254,5 +352,8 @@ function relTime(iso) {
 
 Object.assign(window, {
   supabase, signInWithGoogle, signOut, useAuth,
-  useRealtimeStore, uploadSubmission, addPin, toggleReaction,
+  useRealtimeStore, uploadSubmission,
+  replaceSubmissionVideo, deleteSubmission,
+  addPin, toggleReaction,
+  addComment, updateComment, deleteComment,
 });
