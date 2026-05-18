@@ -394,7 +394,7 @@ const SlotLive = ({ member, sub, members, me, isMe, viewerMode, uploading,
               <input
                 ref={replaceRef}
                 type="file"
-                accept="video/*"
+                accept="video/*,image/*"
                 style={{ display: 'none' }}
                 onChange={(e) => e.target.files[0] && onReplace(e.target.files[0])}
               />
@@ -494,7 +494,7 @@ const SlotLive = ({ member, sub, members, me, isMe, viewerMode, uploading,
           <input
             ref={inputRef}
             type="file"
-            accept="video/*"
+            accept="video/*,image/*"
             style={{ display: 'none' }}
             onChange={(e) => e.target.files[0] && onUpload(e.target.files[0])}
           />

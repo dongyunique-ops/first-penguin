@@ -214,8 +214,9 @@ async function uploadSubmission({ memberId, dayKey, file, title, tags }) {
   if (upErr) throw upErr;
   const { data: urlData } = supabase.storage.from('submissions').getPublicUrl(path);
 
-  // Get duration
-  const duration = await new Promise(res => {
+  // Get duration (only for videos; images use —)
+  const isImage = file.type.startsWith('image/');
+  const duration = isImage ? '—' : await new Promise(res => {
     const v = document.createElement('video');
     v.preload = 'metadata';
     v.onloadedmetadata = () => {
@@ -232,7 +233,7 @@ async function uploadSubmission({ memberId, dayKey, file, title, tags }) {
     day_key: dayKey,
     title: title || '제목 없음',
     tags: tags || [],
-    format: ext,
+    format: isImage ? 'image' : ext,
     duration,
     video_url: urlData.publicUrl,
     video_mime: file.type,
@@ -300,7 +301,8 @@ async function replaceSubmissionVideo({ submissionId, oldPath, file, memberId })
   if (upErr) throw upErr;
   const { data: urlData } = supabase.storage.from('submissions').getPublicUrl(path);
 
-  const duration = await new Promise(res => {
+  const isImage = file.type.startsWith('image/');
+  const duration = isImage ? '—' : await new Promise(res => {
     const v = document.createElement('video');
     v.preload = 'metadata';
     v.onloadedmetadata = () => {
@@ -313,7 +315,7 @@ async function replaceSubmissionVideo({ submissionId, oldPath, file, memberId })
 
   const { data, error } = await supabase.from('submissions')
     .update({
-      format: ext, duration,
+      format: isImage ? 'image' : ext, duration,
       video_url: urlData.publicUrl,
       video_mime: file.type,
       video_path: path,
