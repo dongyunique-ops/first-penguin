@@ -135,6 +135,11 @@ const ContactSheetLive = ({ tweaks, viewKey, setViewKey, navigate, me, members, 
         </div>
         <div style={{ flex: 1 }}/>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <DatePicker
+            value={viewKey}
+            onChange={(k) => setViewKey(k)}
+            days={days}
+          />
           <button className="btn sm" onClick={() => stepDay(-1)}>
             <Icon name="chevronL" size={11}/>이전
           </button>
@@ -723,3 +728,121 @@ const hoverActionBtn = {
 };
 
 Object.assign(window, { ContactSheetLive });
+
+// ─────────────────────────────────────────────
+// DatePicker — calendar popover, jumps to selected day.
+// ─────────────────────────────────────────────
+const DatePicker = ({ value, onChange, days }) => {
+  const [open, setOpen] = React.useState(false);
+  const [view, setView] = React.useState(fromKey(value));
+  const ref = React.useRef(null);
+
+  React.useEffect(() => { setView(fromKey(value)); }, [value]);
+
+  React.useEffect(() => {
+    if (!open) return;
+    const onDoc = (e) => { if (!ref.current?.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [open]);
+
+  const year = view.getFullYear();
+  const month = view.getMonth();
+  const first = new Date(year, month, 1);
+  const startDow = first.getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const today = todayKey();
+
+  const cells = [];
+  for (let i = 0; i < startDow; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(year, month, d));
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  const stepMonth = (delta) => setView(new Date(year, month + delta, 1));
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button className="btn sm" onClick={() => setOpen(o => !o)} title="달력으로 이동">
+        <Icon name="calendar" size={12}/>달력
+      </button>
+      {open && (
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 6px)', right: 0,
+          width: 264, background: 'white',
+          border: '1px solid var(--line)', borderRadius: 10,
+          boxShadow: 'var(--shadow-md)', padding: 12, zIndex: 100,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+            <button className="btn sm" onClick={() => stepMonth(-1)} style={{ width: 24, padding: 0 }}>
+              <Icon name="chevronL" size={11}/>
+            </button>
+            <div style={{ flex: 1, textAlign: 'center', fontWeight: 600, fontSize: 13 }}>
+              {year}년 {month + 1}월
+            </div>
+            <button className="btn sm" onClick={() => stepMonth(1)} style={{ width: 24, padding: 0 }}>
+              <Icon name="chevronR" size={11}/>
+            </button>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 2, marginBottom: 4 }}>
+            {['일','월','화','수','목','금','토'].map((d, i) => (
+              <div key={d} className="t-meta" style={{
+                textAlign: 'center', fontSize: 10, padding: '2px 0',
+                color: i === 0 ? '#cc2c2c' : i === 6 ? '#2966ff' : 'var(--ink-3)',
+              }}>{d}</div>
+            ))}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 2 }}>
+            {cells.map((d, i) => {
+              if (!d) return <div key={i}/>;
+              const k = dateKey(d);
+              const isSel = k === value;
+              const isTodayCell = k === today;
+              const day = days[k];
+              const submitted = day && day.subs.filter(s => !s.missing && !s.isVacation).length;
+              const hasContent = submitted > 0;
+              const isFuture = k > today;
+              const dow = d.getDay();
+              return (
+                <button key={i}
+                  onClick={() => { onChange(k); setOpen(false); }}
+                  disabled={isFuture}
+                  style={{
+                    all: 'unset', cursor: isFuture ? 'default' : 'pointer',
+                    height: 30, borderRadius: 6,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 12, fontWeight: isSel ? 700 : 500,
+                    background: isSel ? 'var(--ink)' : isTodayCell ? 'var(--bg-2)' : 'transparent',
+                    color: isSel ? '#fff7e6'
+                      : isFuture ? 'var(--ink-4)'
+                      : isTodayCell ? 'var(--accent)'
+                      : dow === 0 ? '#cc2c2c'
+                      : dow === 6 ? '#2966ff'
+                      : 'var(--ink)',
+                    position: 'relative',
+                  }}>
+                  {d.getDate()}
+                  {hasContent && (
+                    <span style={{
+                      position: 'absolute', bottom: 3, left: '50%', transform: 'translateX(-50%)',
+                      width: 4, height: 4, borderRadius: '50%',
+                      background: isSel ? '#fff7e6' : 'var(--accent)',
+                    }}/>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          <button
+            onClick={() => { onChange(today); setOpen(false); }}
+            style={{
+              all: 'unset', cursor: 'pointer',
+              display: 'block', width: '100%', textAlign: 'center',
+              marginTop: 10, padding: '6px',
+              borderRadius: 6, background: 'var(--bg-2)',
+              fontSize: 12, fontWeight: 600,
+            }}>오늘로 이동</button>
+        </div>
+      )}
+    </div>
+  );
+};
