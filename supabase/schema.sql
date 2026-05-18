@@ -40,9 +40,15 @@ create table if not exists public.submissions (
   video_url text,
   video_mime text,
   video_path text,
+  is_vacation boolean default false,
   submitted_at timestamptz default now(),
   unique (member_id, day_key)
 );
+
+-- Add is_vacation column if migrating from earlier schema
+alter table public.submissions add column if not exists is_vacation boolean default false;
+-- Add description column for video caption
+alter table public.submissions add column if not exists description text;
 
 create index if not exists submissions_day_idx on public.submissions(day_key desc);
 
@@ -157,12 +163,29 @@ alter publication supabase_realtime add table public.comments;
 -- 7. Storage bucket
 -- 'submissions' 버킷을 Storage UI에서 PUBLIC으로 만든 후, 아래 정책 실행
 -- ────────────────────────────────────────────
+-- 첫 셋업이면 아래 4개를 실행. 이미 처음 셋업했고 권한만 풀고 싶으면
+-- MIGRATION 섹션의 한 줄(drop + create)만 실행하면 됩니다.
+
 -- create policy "anyone can read submissions bucket"
 --   on storage.objects for select using (bucket_id = 'submissions');
 -- create policy "logged-in users can upload to submissions"
 --   on storage.objects for insert with check (bucket_id = 'submissions' and auth.role() = 'authenticated');
+-- create policy "team can update submissions"
+--   on storage.objects for update using (bucket_id = 'submissions' and auth.role() = 'authenticated');
 -- create policy "team can delete from submissions"
 --   on storage.objects for delete using (bucket_id = 'submissions' and auth.role() = 'authenticated');
+
+-- ════════════════════════════════════════════
+-- STORAGE PERMISSION UNLOCK (이미 셋업한 사용자용)
+-- 다른 사람 영상도 교체/삭제할 수 있도록 권한 푸는 SQL:
+-- ════════════════════════════════════════════
+-- drop policy if exists "users can delete own uploads" on storage.objects;
+-- drop policy if exists "team can delete from submissions" on storage.objects;
+-- create policy "team can delete from submissions"
+--   on storage.objects for delete using (bucket_id = 'submissions' and auth.role() = 'authenticated');
+-- drop policy if exists "team can update submissions" on storage.objects;
+-- create policy "team can update submissions"
+--   on storage.objects for update using (bucket_id = 'submissions' and auth.role() = 'authenticated');
 
 -- ════════════════════════════════════════════
 -- MIGRATION (v1 → v2): 이미 schema.sql v1 돌린 사람만 이 부분 실행

@@ -203,9 +203,12 @@ function useRealtimeStore() {
 // ────────────────────────────────────────────
 async function uploadSubmission({ memberId, dayKey, file, title, tags }) {
   if (!supabase) throw new Error('Not configured');
-  // Path: <user-id>/<dayKey>-<filename>
+  // Path: <uploader-id>/<slot-owner>-<dayKey>-<ts>.<ext>
+  // Using uploader's auth id makes storage RLS work even with strict folder-scoped policies.
+  const { data: { user } } = await supabase.auth.getUser();
+  const uploaderId = user?.id || memberId;
   const ext = (file.name.split('.').pop() || 'mp4').toLowerCase();
-  const path = `${memberId}/${dayKey}-${Date.now()}.${ext}`;
+  const path = `${uploaderId}/${memberId}-${dayKey}-${Date.now()}.${ext}`;
   const { error: upErr } = await supabase.storage
     .from('submissions').upload(path, file, { contentType: file.type, upsert: true });
   if (upErr) throw upErr;
@@ -287,9 +290,11 @@ async function unmarkVacation({ submissionId }) {
 
 async function replaceSubmissionVideo({ submissionId, oldPath, file, memberId }) {
   if (!supabase) throw new Error('Not configured');
+  const { data: { user } } = await supabase.auth.getUser();
+  const uploaderId = user?.id || memberId;
   const ext = (file.name.split('.').pop() || 'mp4').toLowerCase();
-  // Path keyed by uploader (memberId) so storage RLS works
-  const path = `${memberId}/${submissionId}-${Date.now()}.${ext}`;
+  // Always upload under uploader's auth folder so storage RLS works
+  const path = `${uploaderId}/${submissionId}-${Date.now()}.${ext}`;
   const { error: upErr } = await supabase.storage
     .from('submissions').upload(path, file, { contentType: file.type, upsert: true });
   if (upErr) throw upErr;

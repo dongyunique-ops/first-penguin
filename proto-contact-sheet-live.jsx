@@ -399,19 +399,41 @@ const SlotLive = ({ member, sub, members, me, isMe, viewerMode, uploading,
       ) : onVacationToday ? (
         <div style={{
           aspectRatio: '16/10',
-          background: 'linear-gradient(135deg, #fff2ec 0%, #ffe4d4 100%)',
+          background: '#15140f',
           display: 'grid', placeItems: 'center',
           position: 'relative',
+          overflow: 'hidden',
         }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 56, lineHeight: 1 }}>🌴</div>
-            <div style={{
-              fontFamily: "'배민워크체', 'BM WORK', 'BMHANNAPro', sans-serif",
-              fontSize: 22, marginTop: 8, color: 'var(--ink)',
-            }}>휴가 중</div>
-            <div className="t-meta" style={{ fontSize: 11, marginTop: 4 }}>
-              {member.name}님은 오늘 쉽니다
-            </div>
+          <div style={{
+            fontFamily: "'배민워크체', 'BM WORK', 'BMHANNAPro', sans-serif",
+            color: '#fff7e6',
+            fontSize: 'clamp(80px, 14vw, 180px)',
+            lineHeight: 1,
+            letterSpacing: '0.05em',
+            fontWeight: 700,
+            textShadow: '0 4px 20px rgba(0,0,0,0.5)',
+          }}>휴가</div>
+          {/* Subtle palm pattern */}
+          <div style={{
+            position: 'absolute', top: 18, right: 18,
+            fontSize: 28, opacity: 0.6,
+          }}>🌴</div>
+          <div style={{
+            position: 'absolute', bottom: 18, left: 18,
+            fontSize: 28, opacity: 0.6,
+          }}>🌴</div>
+          {/* Bottom caption strip */}
+          <div style={{
+            position: 'absolute', bottom: 0, left: 0, right: 0,
+            padding: '8px 14px',
+            background: 'rgba(0,0,0,0.5)',
+            backdropFilter: 'blur(4px)',
+            color: '#fff7e6',
+            fontFamily: "'배민워크체', 'BM WORK', 'BMHANNAPro', sans-serif",
+            fontSize: 13, letterSpacing: '0.04em',
+            textAlign: 'center',
+          }}>
+            {member.name}님은 오늘 쉽니다
           </div>
           {!viewerMode && (
             <button
@@ -422,7 +444,7 @@ const SlotLive = ({ member, sub, members, me, isMe, viewerMode, uploading,
                 all: 'unset', cursor: 'pointer',
                 padding: '4px 10px', borderRadius: 6,
                 fontSize: 11, fontWeight: 600,
-                background: 'rgba(255,255,255,0.7)', color: 'var(--ink-2)',
+                background: 'rgba(255,255,255,0.85)', color: 'var(--ink)',
                 backdropFilter: 'blur(4px)',
               }}>휴가 취소</button>
           )}
