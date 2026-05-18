@@ -108,6 +108,8 @@ function useRealtimeStore() {
         videoUrl: sub.video_url,
         videoMime: sub.video_mime,
         videoPath: sub.video_path,
+        isVacation: sub.is_vacation || false,
+        description: sub.description || '',
         time: '',
         pins: [],
         comments: [],
@@ -248,6 +250,41 @@ async function addPin({ submissionId, authorId, x, y, t, text }) {
   return data;
 }
 
+async function updateSubmissionMeta({ submissionId, title, description }) {
+  if (!supabase) throw new Error('Not configured');
+  const updates = {};
+  if (title !== undefined) updates.title = title;
+  if (description !== undefined) updates.description = description;
+  const { data, error } = await supabase.from('submissions')
+    .update(updates).eq('id', submissionId).select().single();
+  if (error) throw error;
+  return data;
+}
+
+async function markVacation({ memberId, dayKey }) {
+  if (!supabase) throw new Error('Not configured');
+  const { data, error } = await supabase.from('submissions').upsert({
+    member_id: memberId,
+    day_key: dayKey,
+    is_vacation: true,
+    title: '휴가',
+    format: 'vacation',
+    duration: '—',
+    video_url: null,
+    video_mime: null,
+    video_path: null,
+    submitted_at: new Date().toISOString(),
+  }, { onConflict: 'member_id,day_key' }).select().single();
+  if (error) throw error;
+  return data;
+}
+
+async function unmarkVacation({ submissionId }) {
+  if (!supabase) throw new Error('Not configured');
+  const { error } = await supabase.from('submissions').delete().eq('id', submissionId);
+  if (error) throw error;
+}
+
 async function replaceSubmissionVideo({ submissionId, oldPath, file, memberId }) {
   if (!supabase) throw new Error('Not configured');
   const ext = (file.name.split('.').pop() || 'mp4').toLowerCase();
@@ -353,7 +390,8 @@ function relTime(iso) {
 Object.assign(window, {
   supabase, signInWithGoogle, signOut, useAuth,
   useRealtimeStore, uploadSubmission,
-  replaceSubmissionVideo, deleteSubmission,
+  replaceSubmissionVideo, deleteSubmission, updateSubmissionMeta,
+  markVacation, unmarkVacation,
   addPin, toggleReaction,
   addComment, updateComment, deleteComment,
 });

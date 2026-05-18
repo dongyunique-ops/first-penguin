@@ -6,7 +6,8 @@ const ContactSheetLive = ({ tweaks, viewKey, setViewKey, navigate, me, members, 
   const day = days[viewKey] || { dateKey: viewKey, dayNum: 0, subs: members.map(m => ({ memberId: m.id, missing: true })) };
   const date = fromKey(viewKey);
   const isToday = viewKey === todayKey();
-  const submitted = day.subs.filter(s => !s.missing).length;
+  const submitted = day.subs.filter(s => !s.missing && !s.isVacation).length;
+  const onVacation = day.subs.filter(s => s.isVacation).length;
   const total = members.length;
 
   const [uploading, setUploading] = React.useState(null); // memberId being uploaded for
@@ -50,6 +51,54 @@ const ContactSheetLive = ({ tweaks, viewKey, setViewKey, navigate, me, members, 
     try {
       await deleteSubmission({ submissionId: sub.id, videoPath: sub.videoPath });
       setConfirmDelete(null);
+    } catch (e) {
+      alert('삭제 실패: ' + e.message);
+    }
+  };
+
+  const handleVacation = async (memberId) => {
+    if (!me) { alert('휴가 표시는 로그인이 필요해요'); return; }
+    try {
+      await markVacation({ memberId, dayKey: viewKey });
+    } catch (e) {
+      alert('휴가 표시 실패: ' + e.message);
+    }
+  };
+
+  const handleCancelVacation = async (sub) => {
+    if (!me) return;
+    try {
+      await unmarkVacation({ submissionId: sub.id });
+    } catch (e) {
+      alert('취소 실패: ' + e.message);
+    }
+  };
+
+  const handleUpdateDescription = async (sub, description) => {
+    if (!me) return;
+    try {
+      await updateSubmissionMeta({ submissionId: sub.id, description });
+    } catch (e) {
+      alert('설명 저장 실패: ' + e.message);
+    }
+  };
+
+  const handleAddCommentForSub = async (sub, text) => {
+    if (!me) { alert('로그인 후 댓글 가능'); return; }
+    if (!text.trim()) return;
+    try {
+      await addComment({
+        submissionId: sub.id, authorId: me.id,
+        text: text.trim(), mentions: [], tSec: null,
+      });
+    } catch (e) {
+      alert('댓글 작성 실패: ' + e.message);
+    }
+  };
+
+  const handleDeleteComment = async (commentId) => {
+    try {
+      await deleteComment({ commentId });
     } catch (e) {
       alert('삭제 실패: ' + e.message);
     }
@@ -107,11 +156,12 @@ const ContactSheetLive = ({ tweaks, viewKey, setViewKey, navigate, me, members, 
           background: 'var(--ink)', color: 'white',
           display: 'grid', placeItems: 'center',
           fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 600,
-        }}>{submitted}/{total}</div>
+        }}>{submitted}/{total - onVacation}</div>
         <div>
           <div style={{ fontSize: 14, fontWeight: 600 }}>
             {submitted === total ? '오늘 모두 제출 완료' :
-             submitted === 0 ? '아직 아무도 안 올렸어요' :
+             submitted === 0 && onVacation === 0 ? '아직 아무도 안 올렸어요' :
+             onVacation > 0 ? `${submitted}명 제출, ${onVacation}명 휴가${total - submitted - onVacation > 0 ? `, ${total - submitted - onVacation}명 대기` : ''}` :
              `${submitted}명 제출, ${total - submitted}명 대기 중`}
           </div>
           <div className="t-meta">실시간 동기화 · 변경사항 자동 반영</div>
@@ -121,13 +171,14 @@ const ContactSheetLive = ({ tweaks, viewKey, setViewKey, navigate, me, members, 
         <div style={{ display: 'flex', gap: 4 }}>
           {members.map(m => {
             const sub = day.subs.find(s => s.memberId === m.id);
-            const submitted = sub && !sub.missing;
+            const isUp = sub && !sub.missing && !sub.isVacation;
+            const isVac = sub && sub.isVacation;
             return (
-              <div key={m.id} title={`${m.name} · ${submitted ? '제출' : '대기'}`}
+              <div key={m.id} title={`${m.name} · ${isUp ? '제출' : isVac ? '휴가' : '대기'}`}
                 style={{
                   width: 10, height: 10, borderRadius: '50%',
-                  background: submitted ? m.color : 'transparent',
-                  border: `2px solid ${submitted ? m.color : 'var(--line)'}`,
+                  background: isUp ? m.color : isVac ? '#ffd4b8' : 'transparent',
+                  border: `2px solid ${isUp ? m.color : isVac ? '#ff8d3a' : 'var(--line)'}`,
                 }}/>
             );
           })}
@@ -146,14 +197,21 @@ const ContactSheetLive = ({ tweaks, viewKey, setViewKey, navigate, me, members, 
               key={m.id}
               member={m}
               sub={sub}
+              members={members}
+              me={me}
               isMe={me && m.id === me.id}
               viewerMode={!me}
               uploading={uploading === m.id}
               onUpload={(f) => handleUpload(m.id, f)}
               onReplace={(f) => handleReplace(sub, f)}
               onDelete={() => setConfirmDelete(sub)}
+              onVacation={() => handleVacation(m.id)}
+              onCancelVacation={() => handleCancelVacation(sub)}
+              onUpdateDescription={(d) => handleUpdateDescription(sub, d)}
+              onAddComment={(t) => handleAddCommentForSub(sub, t)}
+              onDeleteComment={(id) => handleDeleteComment(id)}
               onReact={(emoji) => handleReaction(sub, emoji)}
-              onOpen={() => sub.id && openPlayer(sub, viewKey)}
+              onOpen={() => sub.id && !sub.isVacation && openPlayer(sub, viewKey)}
               filmGrain={tweaks.filmGrain}
             />
           );
@@ -205,7 +263,10 @@ const ConfirmDeleteModal = ({ sub, member, onConfirm, onCancel }) => (
   </div>
 );
 
-const SlotLive = ({ member, sub, isMe, viewerMode, uploading, onUpload, onReplace, onDelete, onReact, onOpen, filmGrain }) => {
+const SlotLive = ({ member, sub, members, me, isMe, viewerMode, uploading,
+  onUpload, onReplace, onDelete, onVacation, onCancelVacation,
+  onUpdateDescription, onAddComment, onDeleteComment,
+  onReact, onOpen, filmGrain }) => {
   const [hover, setHover] = React.useState(false);
   const [drag, setDrag] = React.useState(false);
   const inputRef = React.useRef(null);
@@ -220,7 +281,8 @@ const SlotLive = ({ member, sub, isMe, viewerMode, uploading, onUpload, onReplac
     else onReplace(f);
   };
 
-  const submitted = !sub.missing;
+  const submitted = !sub.missing && !sub.isVacation;
+  const onVacationToday = sub.isVacation;
   const reactions = sub.reactions || {};
   const myReactions = reactions.__mine || {};
   const reactionEntries = Object.entries(reactions).filter(([k]) => !k.startsWith('__'));
@@ -255,7 +317,7 @@ const SlotLive = ({ member, sub, isMe, viewerMode, uploading, onUpload, onReplac
             {member.name} {isMe && <span style={{ color: 'var(--ink-3)', fontWeight: 400 }}>· 나</span>}
           </div>
           <div className="t-meta" style={{ fontSize: 11 }}>
-            {submitted ? sub.title : (isMe ? '드래그해서 업로드' : '대기 중')}
+            {submitted ? sub.title : (onVacationToday ? '🌴 휴가' : (isMe ? '드래그해서 업로드' : '대기 중'))}
           </div>
         </div>
         {submitted && sub.duration && (
@@ -334,6 +396,37 @@ const SlotLive = ({ member, sub, isMe, viewerMode, uploading, onUpload, onReplac
             </div>
           )}
         </div>
+      ) : onVacationToday ? (
+        <div style={{
+          aspectRatio: '16/10',
+          background: 'linear-gradient(135deg, #fff2ec 0%, #ffe4d4 100%)',
+          display: 'grid', placeItems: 'center',
+          position: 'relative',
+        }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 56, lineHeight: 1 }}>🌴</div>
+            <div style={{
+              fontFamily: "'배민워크체', 'BM WORK', 'BMHANNAPro', sans-serif",
+              fontSize: 22, marginTop: 8, color: 'var(--ink)',
+            }}>휴가 중</div>
+            <div className="t-meta" style={{ fontSize: 11, marginTop: 4 }}>
+              {member.name}님은 오늘 쉽니다
+            </div>
+          </div>
+          {!viewerMode && (
+            <button
+              onClick={onCancelVacation}
+              title="휴가 취소"
+              style={{
+                position: 'absolute', top: 8, right: 8,
+                all: 'unset', cursor: 'pointer',
+                padding: '4px 10px', borderRadius: 6,
+                fontSize: 11, fontWeight: 600,
+                background: 'rgba(255,255,255,0.7)', color: 'var(--ink-2)',
+                backdropFilter: 'blur(4px)',
+              }}>휴가 취소</button>
+          )}
+        </div>
       ) : (
         <div
           onClick={() => !viewerMode && inputRef.current?.click()}
@@ -343,6 +436,7 @@ const SlotLive = ({ member, sub, isMe, viewerMode, uploading, onUpload, onReplac
             display: 'grid', placeItems: 'center',
             cursor: viewerMode ? 'default' : 'pointer',
             color: 'var(--ink-3)',
+            position: 'relative',
           }}>
           {uploading ? (
             <div style={{ textAlign: 'center' }}>
@@ -353,11 +447,21 @@ const SlotLive = ({ member, sub, isMe, viewerMode, uploading, onUpload, onReplac
               <div className="t-mono" style={{ fontSize: 12 }}>대기 중</div>
             </div>
           ) : (
-            <div style={{ textAlign: 'center' }}>
+            <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
               <Icon name="upload" size={28}/>
-              <div className="t-mono" style={{ fontSize: 12, marginTop: 8 }}>
+              <div className="t-mono" style={{ fontSize: 12 }}>
                 {isMe ? '클릭 또는 드래그' : `${member.name}님 영상 올리기`}
               </div>
+              <button
+                onClick={(e) => { e.stopPropagation(); onVacation(); }}
+                style={{
+                  all: 'unset', cursor: 'pointer',
+                  padding: '5px 12px', borderRadius: 6,
+                  fontSize: 11, fontWeight: 600,
+                  background: 'white', color: 'var(--ink)',
+                  border: '1px solid var(--line)',
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                }}>🌴 휴가</button>
             </div>
           )}
           <input
@@ -368,6 +472,15 @@ const SlotLive = ({ member, sub, isMe, viewerMode, uploading, onUpload, onReplac
             onChange={(e) => e.target.files[0] && onUpload(e.target.files[0])}
           />
         </div>
+      )}
+
+      {/* Description */}
+      {submitted && (
+        <DescriptionBlock
+          description={sub.description}
+          editable={!!me}
+          onSave={onUpdateDescription}
+        />
       )}
 
       {/* Footer: reactions + tags */}
@@ -398,6 +511,180 @@ const SlotLive = ({ member, sub, isMe, viewerMode, uploading, onUpload, onReplac
               </button>
             ))}
           </div>
+        </div>
+      )}
+      {/* Comments block */}
+      {submitted && (
+        <CommentsBlock
+          sub={sub}
+          members={members}
+          me={me}
+          viewerMode={viewerMode}
+          onAddComment={onAddComment}
+          onDeleteComment={onDeleteComment}
+          onOpen={onOpen}
+        />
+      )}
+    </div>
+  );
+};
+
+const DescriptionBlock = ({ description, editable, onSave }) => {
+  const [editing, setEditing] = React.useState(false);
+  const [draft, setDraft] = React.useState(description || '');
+  const inputRef = React.useRef(null);
+
+  React.useEffect(() => { setDraft(description || ''); }, [description]);
+  React.useEffect(() => { if (editing) inputRef.current?.focus(); }, [editing]);
+
+  const save = async () => {
+    setEditing(false);
+    if (draft !== (description || '')) {
+      await onSave?.(draft);
+    }
+  };
+
+  if (!editable && !description) return null;
+
+  if (editing) {
+    return (
+      <div style={{ padding: '10px 14px', borderTop: '1px solid var(--line)' }}>
+        <textarea
+          ref={inputRef}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={save}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); save(); }
+            if (e.key === 'Escape') { setDraft(description || ''); setEditing(false); }
+          }}
+          placeholder="이 영상에 대한 설명을 적어보세요…"
+          rows={2}
+          style={{
+            width: '100%', boxSizing: 'border-box',
+            border: '1px solid var(--accent)', borderRadius: 6,
+            padding: '6px 8px', fontSize: 13, lineHeight: 1.5,
+            fontFamily: 'inherit', resize: 'vertical', outline: 'none',
+          }}
+        />
+        <div className="t-meta" style={{ fontSize: 10, marginTop: 4 }}>
+          ⌘+Enter 저장 · Esc 취소
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      onClick={() => editable && setEditing(true)}
+      style={{
+        padding: '10px 14px',
+        borderTop: '1px solid var(--line)',
+        cursor: editable ? 'text' : 'default',
+        color: description ? 'var(--ink)' : 'var(--ink-3)',
+        fontSize: 13, lineHeight: 1.55,
+        fontStyle: description ? 'normal' : 'italic',
+        whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+      }}
+      title={editable ? '클릭해서 수정' : undefined}>
+      {description || (editable ? '+ 설명 추가' : '')}
+    </div>
+  );
+};
+
+const CommentsBlock = ({ sub, members, me, viewerMode, onAddComment, onDeleteComment, onOpen }) => {
+  const [draft, setDraft] = React.useState('');
+  const [showAll, setShowAll] = React.useState(false);
+  const all = (sub.comments || []).slice().sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+  const shown = showAll ? all : all.slice(-2);
+
+  const submit = async () => {
+    const text = draft.trim();
+    if (!text) return;
+    setDraft('');
+    await onAddComment(text);
+  };
+
+  return (
+    <div style={{
+      padding: '10px 14px 12px',
+      borderTop: '1px solid var(--line)',
+      background: 'var(--bg)',
+    }}>
+      {all.length === 0 && (
+        <div className="t-meta" style={{ fontSize: 11, marginBottom: 8 }}>
+          댓글이 아직 없어요
+        </div>
+      )}
+      {all.length > 2 && !showAll && (
+        <button
+          onClick={() => setShowAll(true)}
+          className="t-meta"
+          style={{
+            all: 'unset', cursor: 'pointer',
+            fontSize: 11, marginBottom: 6, color: 'var(--accent)',
+          }}>
+          이전 댓글 {all.length - 2}개 더 보기
+        </button>
+      )}
+      {shown.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 8 }}>
+          {shown.map(c => {
+            const author = (members || []).find(m => m.id === c.authorId)
+              || { id: c.authorId, name: '?', initial: '?', color: '#888' };
+            const isMine = me && c.authorId === me.id;
+            return (
+              <div key={c.id} style={{ display: 'flex', gap: 7, alignItems: 'flex-start' }}>
+                <Avatar member={author} size={18}/>
+                <div style={{ flex: 1, minWidth: 0, fontSize: 12, lineHeight: 1.45 }}>
+                  <span style={{ fontWeight: 600 }}>{author.name}</span>
+                  <span className="t-meta" style={{ fontSize: 10, marginLeft: 5 }}>{c.time}</span>
+                  <div style={{ color: 'var(--ink)', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
+                    {c.text}
+                  </div>
+                </div>
+                {isMine && (
+                  <button
+                    onClick={() => onDeleteComment(c.id)}
+                    title="삭제"
+                    style={{
+                      all: 'unset', cursor: 'pointer',
+                      color: 'var(--ink-3)', fontSize: 11, padding: '0 4px',
+                    }}>×</button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {!viewerMode ? (
+        <div style={{ display: 'flex', gap: 6 }}>
+          <input
+            type="text"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
+            placeholder="댓글 남기기…"
+            style={{
+              flex: 1, border: '1px solid var(--line)', borderRadius: 6,
+              padding: '6px 9px', fontSize: 12, fontFamily: 'inherit',
+              outline: 'none', minWidth: 0,
+            }}
+          />
+          <button
+            onClick={submit}
+            disabled={!draft.trim()}
+            style={{
+              all: 'unset', cursor: draft.trim() ? 'pointer' : 'default',
+              padding: '6px 12px', borderRadius: 6,
+              fontSize: 11, fontWeight: 600,
+              background: draft.trim() ? 'var(--ink)' : 'var(--bg-2)',
+              color: draft.trim() ? '#fff7e6' : 'var(--ink-3)',
+            }}>전송</button>
+        </div>
+      ) : (
+        <div className="t-meta" style={{ fontSize: 11, textAlign: 'center', padding: '4px 0' }}>
+          댓글을 남기려면 Google 로그인이 필요해요
         </div>
       )}
     </div>
