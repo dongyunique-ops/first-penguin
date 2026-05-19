@@ -4,12 +4,19 @@
 const ProtoVideo = ({ submission, isPlaying = true, autoPlay = false, muted = true, loop = true, style, onLoadedMeta, currentTime, onTimeUpdate, onClick }) => {
   const videoRef = React.useRef(null);
   const hasFile = submission?.videoUrl;
+  // Lazy-load: only mount the <video> element when it's been requested to play
+  // at least once, OR when autoPlay is true. Big speed win for The Roll page
+  // because dozens of off-screen videos no longer fetch their data.
+  const [shouldMount, setShouldMount] = React.useState(autoPlay || isPlaying);
+  React.useEffect(() => {
+    if (isPlaying || autoPlay) setShouldMount(true);
+  }, [isPlaying, autoPlay]);
 
   React.useEffect(() => {
     if (!videoRef.current) return;
     if (isPlaying) videoRef.current.play().catch(()=>{});
     else videoRef.current.pause();
-  }, [isPlaying, hasFile]);
+  }, [isPlaying, hasFile, shouldMount]);
 
   React.useEffect(() => {
     if (!videoRef.current || currentTime == null) return;
@@ -21,12 +28,39 @@ const ProtoVideo = ({ submission, isPlaying = true, autoPlay = false, muted = tr
   if (hasFile && submission.videoMime?.startsWith('image/')) {
     return (
       <div className="video-frame" style={style} onClick={onClick}>
-        <img src={submission.videoUrl} alt=""
+        <img src={submission.videoUrl} alt="" loading="lazy"
           style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }}/>
       </div>
     );
   }
   if (hasFile) {
+    // Off-screen placeholder until play requested
+    if (!shouldMount) {
+      return (
+        <div className="video-frame" style={style} onClick={onClick}>
+          <div style={{
+            position:'absolute', inset: 0,
+            background: '#15140f',
+            display:'grid', placeItems:'center',
+            color:'rgba(255,247,230,.55)',
+          }}>
+            <div style={{
+              width: 44, height: 44, borderRadius:'50%',
+              background:'rgba(255,247,230,.15)',
+              display:'grid', placeItems:'center',
+            }}>
+              <span style={{
+                width: 0, height: 0,
+                borderLeft:'12px solid #fff7e6',
+                borderTop:'8px solid transparent',
+                borderBottom:'8px solid transparent',
+                marginLeft: 4,
+              }}/>
+            </div>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="video-frame" style={style} onClick={onClick}>
         <video
@@ -36,6 +70,7 @@ const ProtoVideo = ({ submission, isPlaying = true, autoPlay = false, muted = tr
           muted={muted}
           loop={loop}
           playsInline
+          preload="metadata"
           onLoadedMetadata={(e) => onLoadedMeta?.(e.target.duration)}
           onTimeUpdate={(e) => onTimeUpdate?.(e.target.currentTime, e.target.duration)}
           style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }}/>
