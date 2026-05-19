@@ -4,19 +4,12 @@
 const ProtoVideo = ({ submission, isPlaying = true, autoPlay = false, muted = true, loop = true, style, onLoadedMeta, currentTime, onTimeUpdate, onClick }) => {
   const videoRef = React.useRef(null);
   const hasFile = submission?.videoUrl;
-  // Lazy-load: only mount the <video> element when it's been requested to play
-  // at least once, OR when autoPlay is true. Big speed win for The Roll page
-  // because dozens of off-screen videos no longer fetch their data.
-  const [shouldMount, setShouldMount] = React.useState(autoPlay || isPlaying);
-  React.useEffect(() => {
-    if (isPlaying || autoPlay) setShouldMount(true);
-  }, [isPlaying, autoPlay]);
 
   React.useEffect(() => {
     if (!videoRef.current) return;
     if (isPlaying) videoRef.current.play().catch(()=>{});
     else videoRef.current.pause();
-  }, [isPlaying, hasFile, shouldMount]);
+  }, [isPlaying, hasFile]);
 
   React.useEffect(() => {
     if (!videoRef.current || currentTime == null) return;
@@ -34,38 +27,15 @@ const ProtoVideo = ({ submission, isPlaying = true, autoPlay = false, muted = tr
     );
   }
   if (hasFile) {
-    // Off-screen placeholder until play requested
-    if (!shouldMount) {
-      return (
-        <div className="video-frame" style={style} onClick={onClick}>
-          <div style={{
-            position:'absolute', inset: 0,
-            background: '#15140f',
-            display:'grid', placeItems:'center',
-            color:'rgba(255,247,230,.55)',
-          }}>
-            <div style={{
-              width: 44, height: 44, borderRadius:'50%',
-              background:'rgba(255,247,230,.15)',
-              display:'grid', placeItems:'center',
-            }}>
-              <span style={{
-                width: 0, height: 0,
-                borderLeft:'12px solid #fff7e6',
-                borderTop:'8px solid transparent',
-                borderBottom:'8px solid transparent',
-                marginLeft: 4,
-              }}/>
-            </div>
-          </div>
-        </div>
-      );
-    }
+    // Append #t=0.1 to force the browser to render the first frame as a poster
+    // without downloading the full video. Combined with preload="metadata" this
+    // gives a real thumbnail much faster than loading the whole file.
+    const posterSrc = submission.videoUrl.includes('#') ? submission.videoUrl : submission.videoUrl + '#t=0.1';
     return (
       <div className="video-frame" style={style} onClick={onClick}>
         <video
           ref={videoRef}
-          src={submission.videoUrl}
+          src={posterSrc}
           autoPlay={autoPlay}
           muted={muted}
           loop={loop}
@@ -77,7 +47,6 @@ const ProtoVideo = ({ submission, isPlaying = true, autoPlay = false, muted = tr
       </div>
     );
   }
-  // Fallback: animated mock
   return (
     <div className="video-frame" style={style} onClick={onClick}>
       <MockVideoCanvas kind={submission?.kind || 'shape'} tone={submission?.tone || 'light'} isPlaying={isPlaying}/>
