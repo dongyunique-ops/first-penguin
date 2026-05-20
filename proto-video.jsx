@@ -5,29 +5,23 @@ const ProtoVideo = ({ submission, isPlaying = true, autoPlay = false, muted = tr
   const videoRef = React.useRef(null);
   const wrapRef = React.useRef(null);
   const hasFile = submission?.videoUrl;
-  // Only mount the <video> when actually in viewport. Massive speed up when
-  // there are dozens of videos (전체보기) because the browser doesn't pre-fetch
-  // metadata for off-screen items.
-  const [visible, setVisible] = React.useState(false);
-  React.useEffect(() => {
-    if (!wrapRef.current || visible) return;
-    const io = new IntersectionObserver((entries) => {
-      entries.forEach(e => {
-        if (e.isIntersecting) { setVisible(true); io.disconnect(); }
-      });
-    }, { rootMargin: '200px' });
-    io.observe(wrapRef.current);
-    return () => io.disconnect();
-  }, [visible]);
+
+  // Mount <video> ONLY when actually needed (hover/autoPlay). Otherwise we
+  // show a static poster image. This was the source of two bugs:
+  //   1) preview grid is slow — every visible tile was streaming its video
+  //      in the background with preload="auto", saturating the 6-connection
+  //      per-origin limit.
+  //   2) clicking a tile to open the player didn't play — the player's
+  //      video request was queued behind all the preview downloads.
+  const shouldMountVideo = isPlaying || autoPlay;
+  const [buffering, setBuffering] = React.useState(false);
 
   React.useEffect(() => {
     if (!videoRef.current) return;
     const v = videoRef.current;
-    if (isPlaying) {
+    if (isPlaying || autoPlay) {
       const tryPlay = () => v.play().catch(()=>{});
       tryPlay();
-      // Also try once the video has enough data — handles the common case
-      // where play() is called before canplay fires on slow connections.
       v.addEventListener('canplay', tryPlay, { once: true });
       v.addEventListener('loadeddata', tryPlay, { once: true });
       return () => {
@@ -37,7 +31,7 @@ const ProtoVideo = ({ submission, isPlaying = true, autoPlay = false, muted = tr
     } else {
       v.pause();
     }
-  }, [isPlaying, hasFile, visible]);
+  }, [isPlaying, autoPlay, hasFile]);
 
   React.useEffect(() => {
     if (!videoRef.current || currentTime == null) return;
@@ -55,72 +49,51 @@ const ProtoVideo = ({ submission, isPlaying = true, autoPlay = false, muted = tr
     );
   }
   if (hasFile) {
-    // If we have a pre-generated thumbnail, use it as the poster — this is
-    // tiny (a few dozen KB) and loads instantly, so the grid feels snappy
-    // even with many videos. The actual video only downloads on hover/play.
     const poster = submission.thumbnailUrl;
-    const posterUrl = poster || (submission.videoUrl.includes('#') ? submission.videoUrl : submission.videoUrl + '#t=1');
-
-    const handleMeta = (e) => {
-      const v = e.target;
-      onLoadedMeta?.(v.duration);
-      // Only force-seek if we don't have a real poster image
-      if (!poster && v.currentTime < 0.5) {
-        const target = Math.min(1, (v.duration || 1) * 0.1);
-        try { v.currentTime = target; } catch {}
-      }
-    };
-
-    // If we have a poster, render the <video> element with the poster
-    // attribute from the start. The poster image shows immediately, and
-    // we preload metadata in the background so hover→play has minimal wait.
-    // Off-viewport items skip the video element entirely (IntersectionObserver).
-    if (poster && !isPlaying && !autoPlay && !visible) {
-      return (
-        <div ref={wrapRef} className="video-frame" style={style} onClick={onClick}>
-          <img src={poster} alt="" loading="lazy" decoding="async"
-            style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }}/>
-        </div>
-      );
-    }
+    const handleMeta = (e) => { onLoadedMeta?.(e.target.duration); };
 
     return (
       <div ref={wrapRef} className="video-frame" style={style} onClick={onClick}>
-        {visible ? (
-          <>
-            <video
-              ref={videoRef}
-              src={poster ? submission.videoUrl : posterUrl}
-              poster={poster || undefined}
-              autoPlay={autoPlay || isPlaying}
-              muted={muted}
-              loop={loop}
-              playsInline
-              preload="auto"
-              onLoadedMetadata={handleMeta}
-              onWaiting={() => { if (isPlaying) { /* spinner shown via :playing class */ } }}
-              onTimeUpdate={(e) => onTimeUpdate?.(e.target.currentTime, e.target.duration)}
-              style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }}/>
-            {/* Loading spinner while buffering on hover */}
-            {isPlaying && videoRef.current && videoRef.current.readyState < 3 && (
-              <div style={{
-                position:'absolute', inset:0,
-                display:'grid', placeItems:'center',
-                background:'rgba(0,0,0,0.2)',
-                pointerEvents:'none',
-              }}>
-                <div className="fp-spinner"/>
-              </div>
-            )}
-          </>
-        ) : poster ? (
+        {/* Always-on poster layer — instant, lightweight */}
+        {poster ? (
           <img src={poster} alt="" loading="lazy" decoding="async"
             style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }}/>
         ) : (
+          <div style={{ position:'absolute', inset:0, background:'#1a1812' }}/>
+        )}
+
+        {/* Video only mounts on hover/autoPlay. Fades over the poster once ready. */}
+        {shouldMountVideo && (
+          <video
+            ref={videoRef}
+            src={submission.videoUrl}
+            poster={poster || undefined}
+            autoPlay
+            muted={muted}
+            loop={loop}
+            playsInline
+            preload="auto"
+            onLoadedMetadata={handleMeta}
+            onWaiting={() => setBuffering(true)}
+            onPlaying={() => setBuffering(false)}
+            onCanPlay={() => setBuffering(false)}
+            onTimeUpdate={(e) => onTimeUpdate?.(e.target.currentTime, e.target.duration)}
+            style={{
+              position:'absolute', inset: 0,
+              width:'100%', height:'100%', objectFit:'cover', display:'block',
+            }}/>
+        )}
+
+        {/* Loading spinner while buffering on hover */}
+        {shouldMountVideo && buffering && (
           <div style={{
             position:'absolute', inset:0,
-            background:'#1a1812',
-          }}/>
+            display:'grid', placeItems:'center',
+            background:'rgba(0,0,0,0.2)',
+            pointerEvents:'none',
+          }}>
+            <div className="fp-spinner"/>
+          </div>
         )}
       </div>
     );

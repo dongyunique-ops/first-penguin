@@ -373,7 +373,8 @@ const PlayerVideo = React.forwardRef(({ submission, isPlaying, muted, loop, spee
       <video
         ref={v}
         src={submission.videoUrl}
-        autoPlay muted={muted} loop={loop} playsInline
+        poster={submission.thumbnailUrl || undefined}
+        autoPlay muted={muted} loop={loop} playsInline preload="auto"
         onLoadedMetadata={(e) => onLoaded?.(e.target.duration)}
         onTimeUpdate={(e) => onTime?.(e.target.currentTime)}
         style={{ width:'100%', height:'100%', objectFit:'contain', background:'#0e0e0c', display:'block' }}/>
