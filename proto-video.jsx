@@ -22,8 +22,21 @@ const ProtoVideo = ({ submission, isPlaying = true, autoPlay = false, muted = tr
 
   React.useEffect(() => {
     if (!videoRef.current) return;
-    if (isPlaying) videoRef.current.play().catch(()=>{});
-    else videoRef.current.pause();
+    const v = videoRef.current;
+    if (isPlaying) {
+      const tryPlay = () => v.play().catch(()=>{});
+      tryPlay();
+      // Also try once the video has enough data — handles the common case
+      // where play() is called before canplay fires on slow connections.
+      v.addEventListener('canplay', tryPlay, { once: true });
+      v.addEventListener('loadeddata', tryPlay, { once: true });
+      return () => {
+        v.removeEventListener('canplay', tryPlay);
+        v.removeEventListener('loadeddata', tryPlay);
+      };
+    } else {
+      v.pause();
+    }
   }, [isPlaying, hasFile, visible]);
 
   React.useEffect(() => {
@@ -76,11 +89,11 @@ const ProtoVideo = ({ submission, isPlaying = true, autoPlay = false, muted = tr
             ref={videoRef}
             src={poster ? submission.videoUrl : posterUrl}
             poster={poster || undefined}
-            autoPlay={autoPlay}
+            autoPlay={autoPlay || isPlaying}
             muted={muted}
             loop={loop}
             playsInline
-            preload={poster ? 'metadata' : 'auto'}
+            preload={isPlaying || autoPlay ? 'auto' : (poster ? 'metadata' : 'auto')}
             onLoadedMetadata={handleMeta}
             onTimeUpdate={(e) => onTimeUpdate?.(e.target.currentTime, e.target.duration)}
             style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }}/>
