@@ -42,23 +42,29 @@ const ProtoVideo = ({ submission, isPlaying = true, autoPlay = false, muted = tr
     );
   }
   if (hasFile) {
+    // Append #t=1 to the URL — modern browsers will fetch & display that frame
+    // as the natural poster without needing a full seek round-trip.
+    const posterUrl = submission.videoUrl.includes('#') ? submission.videoUrl : submission.videoUrl + '#t=1';
     const handleMeta = (e) => {
       const v = e.target;
       onLoadedMeta?.(v.duration);
-      const target = Math.min(1, (v.duration || 1) * 0.1);
-      try { v.currentTime = target; } catch {}
+      // Belt-and-suspenders: also seek programmatically in case the fragment didn't take
+      if (v.currentTime < 0.5) {
+        const target = Math.min(1, (v.duration || 1) * 0.1);
+        try { v.currentTime = target; } catch {}
+      }
     };
     return (
       <div ref={wrapRef} className="video-frame" style={style} onClick={onClick}>
         {visible ? (
           <video
             ref={videoRef}
-            src={submission.videoUrl}
+            src={posterUrl}
             autoPlay={autoPlay}
             muted={muted}
             loop={loop}
             playsInline
-            preload="metadata"
+            preload="auto"
             onLoadedMetadata={handleMeta}
             onTimeUpdate={(e) => onTimeUpdate?.(e.target.currentTime, e.target.duration)}
             style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }}/>
