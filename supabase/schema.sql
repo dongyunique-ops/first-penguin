@@ -49,6 +49,9 @@ create table if not exists public.submissions (
 alter table public.submissions add column if not exists is_vacation boolean default false;
 -- Add description column for video caption
 alter table public.submissions add column if not exists description text;
+-- Thumbnail (poster image) for fast loading
+alter table public.submissions add column if not exists thumbnail_url text;
+alter table public.submissions add column if not exists thumbnail_path text;
 
 create index if not exists submissions_day_idx on public.submissions(day_key desc);
 

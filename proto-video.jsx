@@ -42,31 +42,50 @@ const ProtoVideo = ({ submission, isPlaying = true, autoPlay = false, muted = tr
     );
   }
   if (hasFile) {
-    // Append #t=1 to the URL — modern browsers will fetch & display that frame
-    // as the natural poster without needing a full seek round-trip.
-    const posterUrl = submission.videoUrl.includes('#') ? submission.videoUrl : submission.videoUrl + '#t=1';
+    // If we have a pre-generated thumbnail, use it as the poster — this is
+    // tiny (a few dozen KB) and loads instantly, so the grid feels snappy
+    // even with many videos. The actual video only downloads on hover/play.
+    const poster = submission.thumbnailUrl;
+    const posterUrl = poster || (submission.videoUrl.includes('#') ? submission.videoUrl : submission.videoUrl + '#t=1');
+
     const handleMeta = (e) => {
       const v = e.target;
       onLoadedMeta?.(v.duration);
-      // Belt-and-suspenders: also seek programmatically in case the fragment didn't take
-      if (v.currentTime < 0.5) {
+      // Only force-seek if we don't have a real poster image
+      if (!poster && v.currentTime < 0.5) {
         const target = Math.min(1, (v.duration || 1) * 0.1);
         try { v.currentTime = target; } catch {}
       }
     };
+
+    // If we have a poster, we can show it as a plain <img> until the user
+    // actually hovers/plays. This avoids loading any video bytes at all.
+    if (poster && !isPlaying && !autoPlay) {
+      return (
+        <div ref={wrapRef} className="video-frame" style={style} onClick={onClick}>
+          <img src={poster} alt="" loading="lazy" decoding="async"
+            style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }}/>
+        </div>
+      );
+    }
+
     return (
       <div ref={wrapRef} className="video-frame" style={style} onClick={onClick}>
         {visible ? (
           <video
             ref={videoRef}
-            src={posterUrl}
+            src={poster ? submission.videoUrl : posterUrl}
+            poster={poster || undefined}
             autoPlay={autoPlay}
             muted={muted}
             loop={loop}
             playsInline
-            preload="auto"
+            preload={poster ? 'metadata' : 'auto'}
             onLoadedMetadata={handleMeta}
             onTimeUpdate={(e) => onTimeUpdate?.(e.target.currentTime, e.target.duration)}
+            style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }}/>
+        ) : poster ? (
+          <img src={poster} alt="" loading="lazy" decoding="async"
             style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }}/>
         ) : (
           <div style={{

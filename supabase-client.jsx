@@ -108,6 +108,8 @@ function useRealtimeStore() {
         videoUrl: sub.video_url,
         videoMime: sub.video_mime,
         videoPath: sub.video_path,
+        thumbnailUrl: sub.thumbnail_url,
+        thumbnailPath: sub.thumbnail_path,
         isVacation: sub.is_vacation || false,
         description: sub.description || '',
         time: '',
@@ -201,6 +203,102 @@ function useRealtimeStore() {
 // ────────────────────────────────────────────
 // Mutations
 // ────────────────────────────────────────────
+// Generate a small JPEG thumbnail from a video file (or return null for images/errors)
+async function makeVideoThumbnail(file) {
+  if (!file.type.startsWith('video/')) return null;
+  return new Promise(resolve => {
+    const url = URL.createObjectURL(file);
+    const v = document.createElement('video');
+    v.preload = 'auto';
+    v.muted = true;
+    v.crossOrigin = 'anonymous';
+    let done = false;
+    const finish = (blob) => {
+      if (done) return; done = true;
+      URL.revokeObjectURL(url);
+      resolve(blob);
+    };
+    v.addEventListener('loadeddata', () => {
+      const target = Math.min(1, (v.duration || 1) * 0.1);
+      v.currentTime = target;
+    }, { once: true });
+    v.addEventListener('seeked', () => {
+      try {
+        const canvas = document.createElement('canvas');
+        // Cap dimensions for small thumbnails
+        const maxW = 640;
+        const scale = Math.min(1, maxW / v.videoWidth);
+        canvas.width = Math.round(v.videoWidth * scale) || 320;
+        canvas.height = Math.round(v.videoHeight * scale) || 180;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob(b => finish(b), 'image/jpeg', 0.78);
+      } catch (e) {
+        finish(null);
+      }
+    }, { once: true });
+    v.addEventListener('error', () => finish(null), { once: true });
+    setTimeout(() => finish(null), 8000); // safety timeout
+    v.src = url;
+  });
+}
+
+async function backfillThumbnails(onProgress) {
+  if (!supabase) throw new Error('Not configured');
+  // Find all submissions that have a video but no thumbnail
+  const { data: rows, error } = await supabase.from('submissions')
+    .select('id, member_id, day_key, video_url, video_path, video_mime, thumbnail_url, is_vacation, format')
+    .not('video_url', 'is', null)
+    .is('thumbnail_url', null);
+  if (error) throw error;
+
+  // Skip images (no need for thumbnails)
+  const targets = (rows || []).filter(r =>
+    !r.is_vacation &&
+    r.video_mime &&
+    !r.video_mime.startsWith('image/')
+  );
+
+  const { data: { user } } = await supabase.auth.getUser();
+  const uploaderId = user?.id;
+  if (!uploaderId) throw new Error('로그인이 필요해요');
+
+  onProgress?.({ done: 0, total: targets.length, current: null });
+
+  let processed = 0;
+  const errors = [];
+  for (const sub of targets) {
+    onProgress?.({ done: processed, total: targets.length, current: sub.id });
+    try {
+      // Fetch the video as a Blob (CORS — works because Storage bucket is public)
+      const resp = await fetch(sub.video_url);
+      if (!resp.ok) throw new Error('fetch failed ' + resp.status);
+      const blob = await resp.blob();
+      const file = new File([blob], 'video.mp4', { type: blob.type || 'video/mp4' });
+
+      const thumbBlob = await makeVideoThumbnail(file);
+      if (!thumbBlob) throw new Error('thumbnail generation failed');
+
+      const path = `${uploaderId}/${sub.id}-${Date.now()}-thumb.jpg`;
+      const { error: upErr } = await supabase.storage
+        .from('submissions').upload(path, thumbBlob, { contentType: 'image/jpeg', upsert: true });
+      if (upErr) throw upErr;
+      const { data: urlData } = supabase.storage.from('submissions').getPublicUrl(path);
+
+      const { error: updErr } = await supabase.from('submissions')
+        .update({ thumbnail_url: urlData.publicUrl, thumbnail_path: path })
+        .eq('id', sub.id);
+      if (updErr) throw updErr;
+    } catch (e) {
+      errors.push({ id: sub.id, error: e.message });
+      console.warn('thumbnail backfill failed for', sub.id, e);
+    }
+    processed++;
+    onProgress?.({ done: processed, total: targets.length, current: null });
+  }
+  return { total: targets.length, processed, errors };
+}
+
 async function uploadSubmission({ memberId, dayKey, file, title, tags }) {
   if (!supabase) throw new Error('Not configured');
   // Path: <uploader-id>/<slot-owner>-<dayKey>-<ts>.<ext>
@@ -214,7 +312,6 @@ async function uploadSubmission({ memberId, dayKey, file, title, tags }) {
   if (upErr) throw upErr;
   const { data: urlData } = supabase.storage.from('submissions').getPublicUrl(path);
 
-  // Get duration (only for videos; images use —)
   const isImage = file.type.startsWith('image/');
   const duration = isImage ? '—' : await new Promise(res => {
     const v = document.createElement('video');
@@ -227,6 +324,23 @@ async function uploadSubmission({ memberId, dayKey, file, title, tags }) {
     v.src = URL.createObjectURL(file);
   });
 
+  // Generate and upload thumbnail (video only)
+  let thumbnailUrl = null, thumbnailPath = null;
+  if (!isImage) {
+    try {
+      const thumbBlob = await makeVideoThumbnail(file);
+      if (thumbBlob) {
+        thumbnailPath = `${uploaderId}/${memberId}-${dayKey}-${Date.now()}-thumb.jpg`;
+        const { error: tErr } = await supabase.storage
+          .from('submissions').upload(thumbnailPath, thumbBlob, { contentType: 'image/jpeg', upsert: true });
+        if (!tErr) {
+          const { data: tUrl } = supabase.storage.from('submissions').getPublicUrl(thumbnailPath);
+          thumbnailUrl = tUrl.publicUrl;
+        }
+      }
+    } catch (e) { console.warn('thumbnail failed', e); }
+  }
+
   // Upsert submission row (one per member per day)
   const { data, error } = await supabase.from('submissions').upsert({
     member_id: memberId,
@@ -238,6 +352,8 @@ async function uploadSubmission({ memberId, dayKey, file, title, tags }) {
     video_url: urlData.publicUrl,
     video_mime: file.type,
     video_path: path,
+    thumbnail_url: thumbnailUrl,
+    thumbnail_path: thumbnailPath,
     submitted_at: new Date().toISOString(),
   }, { onConflict: 'member_id,day_key' }).select().single();
   if (error) throw error;
@@ -313,12 +429,31 @@ async function replaceSubmissionVideo({ submissionId, oldPath, file, memberId })
     v.src = URL.createObjectURL(file);
   });
 
+  // Generate thumbnail for the replacement
+  let thumbnailUrl = null, thumbnailPath = null;
+  if (!isImage) {
+    try {
+      const thumbBlob = await makeVideoThumbnail(file);
+      if (thumbBlob) {
+        thumbnailPath = `${uploaderId}/${submissionId}-${Date.now()}-thumb.jpg`;
+        const { error: tErr } = await supabase.storage
+          .from('submissions').upload(thumbnailPath, thumbBlob, { contentType: 'image/jpeg', upsert: true });
+        if (!tErr) {
+          const { data: tUrl } = supabase.storage.from('submissions').getPublicUrl(thumbnailPath);
+          thumbnailUrl = tUrl.publicUrl;
+        }
+      }
+    } catch (e) { console.warn('thumbnail failed', e); }
+  }
+
   const { data, error } = await supabase.from('submissions')
     .update({
       format: isImage ? 'image' : ext, duration,
       video_url: urlData.publicUrl,
       video_mime: file.type,
       video_path: path,
+      thumbnail_url: thumbnailUrl,
+      thumbnail_path: thumbnailPath,
       submitted_at: new Date().toISOString(),
     })
     .eq('id', submissionId)
@@ -401,4 +536,5 @@ Object.assign(window, {
   markVacation, unmarkVacation,
   addPin, toggleReaction,
   addComment, updateComment, deleteComment,
+  makeVideoThumbnail, backfillThumbnails,
 });

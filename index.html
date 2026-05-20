@@ -134,6 +134,21 @@
 
     const SignedInApp = ({ me, signedIn, onSignIn, onSignOut, nav, setNav, player, setPlayer, t, setTweak }) => {
       const { members, days, loaded } = useRealtimeStore();
+      const [backfillProgress, setBackfillProgress] = React.useState(null);
+
+      const runBackfill = async () => {
+        if (backfillProgress) return;
+        if (!confirm('기존 영상들의 썸네일을 일괄 생성합니다. 영상 수에 따라 몇 분 걸릴 수 있어요. 시작할까요?')) return;
+        setBackfillProgress({ done: 0, total: 0 });
+        try {
+          const result = await backfillThumbnails(p => setBackfillProgress(p));
+          setBackfillProgress({ ...result, finished: true });
+          setTimeout(() => setBackfillProgress(null), 5000);
+        } catch (e) {
+          alert('실패: ' + e.message);
+          setBackfillProgress(null);
+        }
+      };
 
       const navigate = (route, arg) => {
         const newNav = { route, viewKey: arg || nav.viewKey };
@@ -232,7 +247,55 @@
               onChange={v => setTweak('filmGrain', v)}/>
             <TweakSection label="계정"/>
             <TweakButton onClick={onSignOut}>로그아웃</TweakButton>
+            <TweakSection label="유지보수"/>
+            <TweakButton onClick={runBackfill}>기존 영상 썸네일 일괄 생성</TweakButton>
           </TweaksPanel>
+
+          {backfillProgress && (
+            <div style={{
+              position: 'fixed', inset: 0, zIndex: 9999,
+              background: 'rgba(15,14,12,0.6)',
+              backdropFilter: 'blur(6px)',
+              display: 'grid', placeItems: 'center',
+            }}>
+              <div style={{
+                background: 'white', borderRadius: 12,
+                padding: 30, width: 360,
+                boxShadow: 'var(--shadow-md)',
+                fontFamily: 'var(--font-sans)',
+              }}>
+                <div className="t-eyebrow" style={{ marginBottom: 8 }}>썸네일 일괄 생성</div>
+                <h3 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>
+                  {backfillProgress.finished
+                    ? `완료! ${backfillProgress.processed}개 처리됨`
+                    : backfillProgress.total === 0
+                      ? '대상 영상 확인 중…'
+                      : `${backfillProgress.done} / ${backfillProgress.total}`}
+                </h3>
+                {!backfillProgress.finished && backfillProgress.total > 0 && (
+                  <div style={{
+                    marginTop: 16, height: 8, borderRadius: 4,
+                    background: 'var(--bg-2)', overflow: 'hidden',
+                  }}>
+                    <div style={{
+                      height: '100%', width: `${(backfillProgress.done / backfillProgress.total) * 100}%`,
+                      background: 'var(--accent)',
+                      transition: 'width .3s',
+                    }}/>
+                  </div>
+                )}
+                {backfillProgress.errors?.length > 0 && (
+                  <div style={{ marginTop: 12, fontSize: 12, color: 'var(--miss)' }}>
+                    {backfillProgress.errors.length}개 실패 (콘솔 확인)
+                  </div>
+                )}
+                {backfillProgress.finished && (
+                  <button className="btn primary" style={{ marginTop: 18 }}
+                    onClick={() => setBackfillProgress(null)}>닫기</button>
+                )}
+              </div>
+            </div>
+          )}
         </>
       );
     };
