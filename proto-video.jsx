@@ -27,21 +27,28 @@ const ProtoVideo = ({ submission, isPlaying = true, autoPlay = false, muted = tr
     );
   }
   if (hasFile) {
-    // Append #t=0.1 to force the browser to render the first frame as a poster
-    // without downloading the full video. Combined with preload="metadata" this
-    // gives a real thumbnail much faster than loading the whole file.
-    const posterSrc = submission.videoUrl.includes('#') ? submission.videoUrl : submission.videoUrl + '#t=0.1';
+    // Some videos start with a black frame, so seek to ~1s for the thumbnail.
+    // We do this via JS onLoadedMetadata, which is more reliable than #t= URL fragment.
+    const handleMeta = (e) => {
+      const v = e.target;
+      onLoadedMeta?.(v.duration);
+      // Seek to 1s (or 10% of duration if very short) to get a visible frame
+      if (!isPlaying && !autoPlay) {
+        const target = Math.min(1, (v.duration || 1) * 0.1);
+        try { v.currentTime = target; } catch {}
+      }
+    };
     return (
       <div className="video-frame" style={style} onClick={onClick}>
         <video
           ref={videoRef}
-          src={posterSrc}
+          src={submission.videoUrl}
           autoPlay={autoPlay}
           muted={muted}
           loop={loop}
           playsInline
-          preload="metadata"
-          onLoadedMetadata={(e) => onLoadedMeta?.(e.target.duration)}
+          preload="auto"
+          onLoadedMetadata={handleMeta}
           onTimeUpdate={(e) => onTimeUpdate?.(e.target.currentTime, e.target.duration)}
           style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }}/>
       </div>
