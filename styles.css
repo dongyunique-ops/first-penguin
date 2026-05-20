@@ -225,3 +225,64 @@ button { font-family: inherit; }
 .scroll::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 4px; }
 .scroll::-webkit-scrollbar-track { background: transparent; }
 .no-scroll::-webkit-scrollbar { display: none; }
+
+/* ── Layout helpers (used + targeted by mobile media queries) ── */
+.fp-page {
+  padding: 24px 36px 60px;
+}
+.fp-grid-4up {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+.fp-grid-roll {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+.fp-player-grid {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(15,14,12,0.92);
+  backdrop-filter: blur(8px);
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  font-family: var(--font-sans);
+  animation: fpFade .18s ease-out;
+}
+
+/* ── Mobile (≤ 720px) ──────────────────────── */
+@media (max-width: 720px) {
+  /* Type — display headers shrink */
+  .t-display { font-size: 34px !important; line-height: 1.05 !important; }
+
+  /* Pages: tighter horizontal padding so content uses full width */
+  .fp-page { padding: 14px 12px 60px !important; gap: 16px !important; }
+
+  /* Contact sheet: 1 column on phone (was 2) */
+  .fp-grid-4up { grid-template-columns: 1fr !important; gap: 12px !important; }
+
+  /* Roll/archive: 2 columns on phone (was 4) */
+  .fp-grid-roll { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
+
+  /* Top nav: tighter, smaller text */
+  .topnav-inner { padding: 8px 12px !important; gap: 6px !important; flex-wrap: wrap; }
+  .topnav .brand { font-size: 17px !important; }
+  .topnav .brand .brand-tag { display: none; }
+  .topnav .navlink { padding: 5px 9px !important; font-size: 12px !important; }
+
+  /* Player overlay: stack vertically, video on top, comments below */
+  .fp-player-grid {
+    grid-template-columns: 1fr !important;
+    grid-template-rows: 1fr minmax(180px, 42vh) !important;
+  }
+  .fp-player-aside {
+    border-left: 0 !important;
+    border-top: 1px solid rgba(255,255,255,.08);
+  }
+  .fp-player-topbar { padding: 10px 14px !important; }
+  .fp-player-stage { padding: 0 10px 8px !important; }
+  .fp-player-controls { padding: 6px 14px 14px !important; }
+
+  /* Tweaks panel — keep usable on phone */
+  .tweaks-panel { max-width: calc(100vw - 24px) !important; }
+}

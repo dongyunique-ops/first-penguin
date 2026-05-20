@@ -73,19 +73,12 @@ const PlayerOverlay = ({ open, sub, member, members, onClose, currentUserId, vie
   };
 
   return (
-    <div style={{
-      position:'fixed', inset:0, zIndex: 1000,
-      background:'rgba(15,14,12,0.92)',
-      backdropFilter:'blur(8px)',
-      display:'grid', gridTemplateColumns: '1fr 360px',
-      fontFamily:'var(--font-sans)',
-      animation:'fpFade .18s ease-out',
-    }}
+    <div className="fp-player-grid"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       {/* Left: stage */}
-      <div style={{ display:'flex', flexDirection:'column', minHeight: 0 }}>
+      <div style={{ display:'flex', flexDirection:'column', minHeight: 0, minWidth: 0 }}>
         {/* Top bar */}
-        <div style={{
+        <div className="fp-player-topbar" style={{
           display:'flex', alignItems:'center', gap: 12,
           padding:'14px 24px', color:'#fff7e6',
         }}>
@@ -114,7 +107,7 @@ const PlayerOverlay = ({ open, sub, member, members, onClose, currentUserId, vie
         </div>
 
         {/* Video */}
-        <div style={{ flex: 1, padding:'0 24px 12px', display:'grid', placeItems:'center', minHeight: 0 }}>
+        <div className="fp-player-stage" style={{ flex: 1, padding:'0 24px 12px', display:'grid', placeItems:'center', minHeight: 0 }}>
           <div style={{
             position:'relative', maxWidth:'100%', maxHeight:'100%',
             aspectRatio:'16/9', width:'100%', borderRadius: 8, overflow:'hidden',
@@ -171,7 +164,7 @@ const PlayerOverlay = ({ open, sub, member, members, onClose, currentUserId, vie
         </div>
 
         {/* Control bar */}
-        <div style={{
+        <div className="fp-player-controls" style={{
           padding:'8px 24px 24px',
           display:'flex', flexDirection:'column', gap: 10,
         }}>
@@ -272,7 +265,7 @@ const PlayerOverlay = ({ open, sub, member, members, onClose, currentUserId, vie
       </div>
 
       {/* Right: comments + reactions */}
-      <aside style={{
+      <aside className="fp-player-aside" style={{
         background:'#1a1812', color:'#fff7e6',
         display:'flex', flexDirection:'column', minHeight: 0,
         borderLeft:'1px solid rgba(255,255,255,.08)',

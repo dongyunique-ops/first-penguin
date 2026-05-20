@@ -22,8 +22,7 @@ const RollLive = ({ tweaks, members, days, openPlayer, navigate }) => {
   }, [allSubs]);
 
   return (
-    <div style={{
-      padding: '24px 36px 60px',
+    <div className="fp-page" style={{
       fontFamily: 'var(--font-sans)',
       display: 'flex', flexDirection: 'column', gap: 22,
     }}>
@@ -67,9 +66,7 @@ const RollLive = ({ tweaks, members, days, openPlayer, navigate }) => {
                 이 날 컨택트시트
               </button>
             </div>
-            <div style={{
-              display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10,
-            }}>
+            <div className="fp-grid-roll">
               {subs.map(s => {
                 const member = members.find(m => m.id === s.memberId);
                 return <RollTile key={s.id} sub={s} member={member}

@@ -120,13 +120,12 @@ const ContactSheetLive = ({ tweaks, viewKey, setViewKey, navigate, me, members, 
   };
 
   return (
-    <div style={{
-      padding: '24px 36px 60px',
+    <div className="fp-page" style={{
       fontFamily: 'var(--font-sans)',
       display: 'flex', flexDirection: 'column', gap: 22,
     }}>
       {/* Header */}
-      <header style={{ display: 'flex', alignItems: 'baseline', gap: 18 }}>
+      <header style={{ display: 'flex', alignItems: 'baseline', gap: 18, flexWrap: 'wrap' }}>
         <div>
           <div className="t-eyebrow">{isToday ? '오늘' : '지난 날'} · 컨택트 시트</div>
           <h1 className="t-display" style={{ margin: '4px 0 0', fontSize: 56, lineHeight: 1, fontFamily: "'배민워크체', 'BM WORK', 'BMHANNAPro', sans-serif" }}>
@@ -191,10 +190,7 @@ const ContactSheetLive = ({ tweaks, viewKey, setViewKey, navigate, me, members, 
       </div>
 
       {/* The 4-up grid */}
-      <div style={{
-        display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)',
-        gap: 16,
-      }}>
+      <div className="fp-grid-4up">
         {members.map(m => {
           const sub = day.subs.find(s => s.memberId === m.id) || { memberId: m.id, missing: true };
           return (
