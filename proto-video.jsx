@@ -95,7 +95,7 @@ const ProtoVideo = ({ submission, isPlaying = true, autoPlay = false, muted = tr
             muted={muted}
             loop={loop}
             playsInline
-            preload={isPlaying || autoPlay ? 'auto' : 'metadata'}
+            preload="auto"
             onLoadedMetadata={handleMeta}
             onTimeUpdate={(e) => onTimeUpdate?.(e.target.currentTime, e.target.duration)}
             style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }}/>
