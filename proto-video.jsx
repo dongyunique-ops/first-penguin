@@ -87,18 +87,32 @@ const ProtoVideo = ({ submission, isPlaying = true, autoPlay = false, muted = tr
     return (
       <div ref={wrapRef} className="video-frame" style={style} onClick={onClick}>
         {visible ? (
-          <video
-            ref={videoRef}
-            src={poster ? submission.videoUrl : posterUrl}
-            poster={poster || undefined}
-            autoPlay={autoPlay || isPlaying}
-            muted={muted}
-            loop={loop}
-            playsInline
-            preload="auto"
-            onLoadedMetadata={handleMeta}
-            onTimeUpdate={(e) => onTimeUpdate?.(e.target.currentTime, e.target.duration)}
-            style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }}/>
+          <>
+            <video
+              ref={videoRef}
+              src={poster ? submission.videoUrl : posterUrl}
+              poster={poster || undefined}
+              autoPlay={autoPlay || isPlaying}
+              muted={muted}
+              loop={loop}
+              playsInline
+              preload="auto"
+              onLoadedMetadata={handleMeta}
+              onWaiting={() => { if (isPlaying) { /* spinner shown via :playing class */ } }}
+              onTimeUpdate={(e) => onTimeUpdate?.(e.target.currentTime, e.target.duration)}
+              style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }}/>
+            {/* Loading spinner while buffering on hover */}
+            {isPlaying && videoRef.current && videoRef.current.readyState < 3 && (
+              <div style={{
+                position:'absolute', inset:0,
+                display:'grid', placeItems:'center',
+                background:'rgba(0,0,0,0.2)',
+                pointerEvents:'none',
+              }}>
+                <div className="fp-spinner"/>
+              </div>
+            )}
+          </>
         ) : poster ? (
           <img src={poster} alt="" loading="lazy" decoding="async"
             style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }}/>
@@ -185,6 +199,23 @@ async function fileToSubmission(file) {
     videoName: file.name,
     format: isImage ? (file.type === 'image/gif' ? 'gif' : file.type === 'image/png' ? 'png' : 'img') : 'mp4',
   };
+}
+
+// Inject spinner styles once
+if (typeof document !== 'undefined' && !document.getElementById('fp-video-spinner')) {
+  const s = document.createElement('style');
+  s.id = 'fp-video-spinner';
+  s.textContent = `
+    .fp-spinner {
+      width: 30px; height: 30px;
+      border: 3px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: fpSpin 0.7s linear infinite;
+    }
+    @keyframes fpSpin { to { transform: rotate(360deg); } }
+  `;
+  document.head.appendChild(s);
 }
 
 Object.assign(window, { ProtoVideo, DropZone, FilePicker, fileToSubmission });
