@@ -3,13 +3,28 @@
 
 const ProtoVideo = ({ submission, isPlaying = true, autoPlay = false, muted = true, loop = true, style, onLoadedMeta, currentTime, onTimeUpdate, onClick }) => {
   const videoRef = React.useRef(null);
+  const wrapRef = React.useRef(null);
   const hasFile = submission?.videoUrl;
+  // Only mount the <video> when actually in viewport. Massive speed up when
+  // there are dozens of videos (전체보기) because the browser doesn't pre-fetch
+  // metadata for off-screen items.
+  const [visible, setVisible] = React.useState(false);
+  React.useEffect(() => {
+    if (!wrapRef.current || visible) return;
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) { setVisible(true); io.disconnect(); }
+      });
+    }, { rootMargin: '200px' });
+    io.observe(wrapRef.current);
+    return () => io.disconnect();
+  }, [visible]);
 
   React.useEffect(() => {
     if (!videoRef.current) return;
     if (isPlaying) videoRef.current.play().catch(()=>{});
     else videoRef.current.pause();
-  }, [isPlaying, hasFile]);
+  }, [isPlaying, hasFile, visible]);
 
   React.useEffect(() => {
     if (!videoRef.current || currentTime == null) return;
@@ -20,7 +35,7 @@ const ProtoVideo = ({ submission, isPlaying = true, autoPlay = false, muted = tr
 
   if (hasFile && submission.videoMime?.startsWith('image/')) {
     return (
-      <div className="video-frame" style={style} onClick={onClick}>
+      <div ref={wrapRef} className="video-frame" style={style} onClick={onClick}>
         <img src={submission.videoUrl} alt="" loading="lazy"
           style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }}/>
       </div>
@@ -30,24 +45,29 @@ const ProtoVideo = ({ submission, isPlaying = true, autoPlay = false, muted = tr
     const handleMeta = (e) => {
       const v = e.target;
       onLoadedMeta?.(v.duration);
-      // Always seek to ~1s for a non-black thumbnail frame.
-      // If the video is currently playing, this is a no-op (browser overrides).
       const target = Math.min(1, (v.duration || 1) * 0.1);
       try { v.currentTime = target; } catch {}
     };
     return (
-      <div className="video-frame" style={style} onClick={onClick}>
-        <video
-          ref={videoRef}
-          src={submission.videoUrl}
-          autoPlay={autoPlay}
-          muted={muted}
-          loop={loop}
-          playsInline
-          preload="metadata"
-          onLoadedMetadata={handleMeta}
-          onTimeUpdate={(e) => onTimeUpdate?.(e.target.currentTime, e.target.duration)}
-          style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }}/>
+      <div ref={wrapRef} className="video-frame" style={style} onClick={onClick}>
+        {visible ? (
+          <video
+            ref={videoRef}
+            src={submission.videoUrl}
+            autoPlay={autoPlay}
+            muted={muted}
+            loop={loop}
+            playsInline
+            preload="metadata"
+            onLoadedMetadata={handleMeta}
+            onTimeUpdate={(e) => onTimeUpdate?.(e.target.currentTime, e.target.duration)}
+            style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }}/>
+        ) : (
+          <div style={{
+            position:'absolute', inset:0,
+            background:'#1a1812',
+          }}/>
+        )}
       </div>
     );
   }
