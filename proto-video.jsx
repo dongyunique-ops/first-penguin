@@ -71,9 +71,11 @@ const ProtoVideo = ({ submission, isPlaying = true, autoPlay = false, muted = tr
       }
     };
 
-    // If we have a poster, we can show it as a plain <img> until the user
-    // actually hovers/plays. This avoids loading any video bytes at all.
-    if (poster && !isPlaying && !autoPlay) {
+    // If we have a poster, render the <video> element with the poster
+    // attribute from the start. The poster image shows immediately, and
+    // we preload metadata in the background so hover→play has minimal wait.
+    // Off-viewport items skip the video element entirely (IntersectionObserver).
+    if (poster && !isPlaying && !autoPlay && !visible) {
       return (
         <div ref={wrapRef} className="video-frame" style={style} onClick={onClick}>
           <img src={poster} alt="" loading="lazy" decoding="async"
@@ -93,7 +95,7 @@ const ProtoVideo = ({ submission, isPlaying = true, autoPlay = false, muted = tr
             muted={muted}
             loop={loop}
             playsInline
-            preload={isPlaying || autoPlay ? 'auto' : (poster ? 'metadata' : 'auto')}
+            preload={isPlaying || autoPlay ? 'auto' : 'metadata'}
             onLoadedMetadata={handleMeta}
             onTimeUpdate={(e) => onTimeUpdate?.(e.target.currentTime, e.target.duration)}
             style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }}/>
