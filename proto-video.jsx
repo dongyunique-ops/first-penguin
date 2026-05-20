@@ -6,14 +6,28 @@ const ProtoVideo = ({ submission, isPlaying = true, autoPlay = false, muted = tr
   const wrapRef = React.useRef(null);
   const hasFile = submission?.videoUrl;
 
-  // Mount <video> ONLY when actually needed (hover/autoPlay). Otherwise we
-  // show a static poster image. This was the source of two bugs:
-  //   1) preview grid is slow — every visible tile was streaming its video
-  //      in the background with preload="auto", saturating the 6-connection
-  //      per-origin limit.
-  //   2) clicking a tile to open the player didn't play — the player's
-  //      video request was queued behind all the preview downloads.
-  const shouldMountVideo = isPlaying || autoPlay;
+  // Desktop has hover → only mount on hover. Mobile has no hover → mount when
+  // the tile scrolls into view (Instagram-style feed autoplay). This avoids
+  // mounting ALL tiles at once (which would saturate the connection pool
+  // and break the player) while still feeling alive on phones.
+  const isHoverDevice = React.useMemo(
+    () => typeof window !== 'undefined'
+      && window.matchMedia?.('(hover: hover)').matches,
+    []
+  );
+  const [inView, setInView] = React.useState(false);
+  React.useEffect(() => {
+    if (!wrapRef.current || inView || isHoverDevice) return;
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) { setInView(true); io.disconnect(); }
+      });
+    }, { rootMargin: '100px' });
+    io.observe(wrapRef.current);
+    return () => io.disconnect();
+  }, [inView, isHoverDevice]);
+
+  const shouldMountVideo = isPlaying || autoPlay || (!isHoverDevice && inView);
   const [buffering, setBuffering] = React.useState(false);
 
   React.useEffect(() => {

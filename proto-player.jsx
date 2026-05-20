@@ -351,10 +351,25 @@ const PlayerOverlay = ({ open, sub, member, members, onClose, currentUserId, vie
 const PlayerVideo = React.forwardRef(({ submission, isPlaying, muted, loop, speed, onLoaded, onTime }, ref) => {
   const localRef = React.useRef(null);
   const v = ref || localRef;
+  // Robust play: retry on canplay/loadeddata events. On slow mobile networks
+  // the first play() call fires before the video has any data and the promise
+  // rejects silently — without these retries, taps look like "nothing happens".
   React.useEffect(() => {
     if (!v.current) return;
-    if (isPlaying) v.current.play?.().catch(()=>{}); else v.current.pause?.();
-  }, [isPlaying]);
+    const el = v.current;
+    if (isPlaying) {
+      const tryPlay = () => el.play?.().catch(() => {});
+      tryPlay();
+      el.addEventListener('canplay', tryPlay);
+      el.addEventListener('loadeddata', tryPlay);
+      return () => {
+        el.removeEventListener('canplay', tryPlay);
+        el.removeEventListener('loadeddata', tryPlay);
+      };
+    } else {
+      el.pause?.();
+    }
+  }, [isPlaying, submission?.videoUrl]);
   React.useEffect(() => { if (v.current) v.current.playbackRate = speed; }, [speed]);
 
   if (submission.videoUrl && submission.videoMime?.startsWith('image/')) {
