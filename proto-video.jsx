@@ -2,58 +2,13 @@
 // Falls back to MockVideoCanvas for seed data without a real file.
 
 const ProtoVideo = ({ submission, isPlaying = true, autoPlay = false, muted = true, loop = true, style, onLoadedMeta, currentTime, onTimeUpdate, onClick }) => {
-  const videoRef = React.useRef(null);
   const wrapRef = React.useRef(null);
   const hasFile = submission?.videoUrl;
 
-  // Desktop has hover → only mount on hover. Mobile has no hover → mount when
-  // the tile scrolls into view (Instagram-style feed autoplay). This avoids
-  // mounting ALL tiles at once (which would saturate the connection pool
-  // and break the player) while still feeling alive on phones.
-  const isHoverDevice = React.useMemo(
-    () => typeof window !== 'undefined'
-      && window.matchMedia?.('(hover: hover)').matches,
-    []
-  );
-  const [inView, setInView] = React.useState(false);
-  React.useEffect(() => {
-    if (!wrapRef.current || inView || isHoverDevice) return;
-    const io = new IntersectionObserver((entries) => {
-      entries.forEach(e => {
-        if (e.isIntersecting) { setInView(true); io.disconnect(); }
-      });
-    }, { rootMargin: '100px' });
-    io.observe(wrapRef.current);
-    return () => io.disconnect();
-  }, [inView, isHoverDevice]);
-
-  const shouldMountVideo = isPlaying || autoPlay || (!isHoverDevice && inView);
-  const [buffering, setBuffering] = React.useState(false);
-
-  React.useEffect(() => {
-    if (!videoRef.current) return;
-    const v = videoRef.current;
-    if (isPlaying || autoPlay) {
-      const tryPlay = () => v.play().catch(()=>{});
-      tryPlay();
-      v.addEventListener('canplay', tryPlay, { once: true });
-      v.addEventListener('loadeddata', tryPlay, { once: true });
-      return () => {
-        v.removeEventListener('canplay', tryPlay);
-        v.removeEventListener('loadeddata', tryPlay);
-      };
-    } else {
-      v.pause();
-    }
-  }, [isPlaying, autoPlay, hasFile]);
-
-  React.useEffect(() => {
-    if (!videoRef.current || currentTime == null) return;
-    if (Math.abs(videoRef.current.currentTime - currentTime) > 0.2) {
-      videoRef.current.currentTime = currentTime;
-    }
-  }, [currentTime]);
-
+  // EGRESS-SAFE PREVIEW: the grid NEVER downloads/plays the video. It only
+  // ever shows the lightweight thumbnail image. The actual video is fetched
+  // only when the user clicks into the full player. This keeps Supabase
+  // egress tiny (thumbnails are ~30KB vs. multi-MB videos looping forever).
   if (hasFile && submission.videoMime?.startsWith('image/')) {
     return (
       <div ref={wrapRef} className="video-frame" style={style} onClick={onClick}>
@@ -64,51 +19,36 @@ const ProtoVideo = ({ submission, isPlaying = true, autoPlay = false, muted = tr
   }
   if (hasFile) {
     const poster = submission.thumbnailUrl;
-    const handleMeta = (e) => { onLoadedMeta?.(e.target.duration); };
-
     return (
       <div ref={wrapRef} className="video-frame" style={style} onClick={onClick}>
-        {/* Always-on poster layer — instant, lightweight */}
         {poster ? (
           <img src={poster} alt="" loading="lazy" decoding="async"
             style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }}/>
         ) : (
           <div style={{ position:'absolute', inset:0, background:'#1a1812' }}/>
         )}
-
-        {/* Video only mounts on hover/autoPlay. Fades over the poster once ready. */}
-        {shouldMountVideo && (
-          <video
-            ref={videoRef}
-            src={submission.videoUrl}
-            poster={poster || undefined}
-            autoPlay
-            muted={muted}
-            loop={loop}
-            playsInline
-            preload="auto"
-            onLoadedMetadata={handleMeta}
-            onWaiting={() => setBuffering(true)}
-            onPlaying={() => setBuffering(false)}
-            onCanPlay={() => setBuffering(false)}
-            onTimeUpdate={(e) => onTimeUpdate?.(e.target.currentTime, e.target.duration)}
-            style={{
-              position:'absolute', inset: 0,
-              width:'100%', height:'100%', objectFit:'cover', display:'block',
-            }}/>
-        )}
-
-        {/* Loading spinner while buffering on hover */}
-        {shouldMountVideo && buffering && (
+        {/* Play affordance — signals this is a video you can open */}
+        <div style={{
+          position:'absolute', inset:0,
+          display:'grid', placeItems:'center',
+          pointerEvents:'none',
+        }}>
           <div style={{
-            position:'absolute', inset:0,
+            width: 44, height: 44, borderRadius:'50%',
+            background:'rgba(15,14,12,0.55)',
+            backdropFilter:'blur(2px)',
             display:'grid', placeItems:'center',
-            background:'rgba(0,0,0,0.2)',
-            pointerEvents:'none',
+            boxShadow:'0 2px 10px rgba(0,0,0,0.3)',
           }}>
-            <div className="fp-spinner"/>
+            <div style={{
+              width: 0, height: 0,
+              borderLeft:'13px solid #fff7e6',
+              borderTop:'8px solid transparent',
+              borderBottom:'8px solid transparent',
+              marginLeft: 3,
+            }}/>
           </div>
-        )}
+        </div>
       </div>
     );
   }
